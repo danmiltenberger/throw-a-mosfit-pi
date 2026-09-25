@@ -24,6 +24,6 @@ numb = 1
 print ("Enter a line of text")
 while numb == 1:
 
-    command = input(">>>>   ")
-    print(f"sending command: {command}")
+    command = 123456789012345
+    print("sending command: {command}")
     bus.write_word_data(addr, 0, command)

@@ -8,6 +8,12 @@
 # raspberry pi IP is 10.201.22.8
 # ssh throwing-a-mosfit@10.201.22.8
 
+
+# rpi: port 3 yellow -> arduino SDA
+# rpi: port 5 orange -> arduino SLC
+# rpi: port 20 GND -> arduino GND
+
+
 from smbus import SMBus
 
 addr = 0x8 # bus address
