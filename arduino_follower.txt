@@ -1,40 +1,90 @@
-// https://dronebotworkshop.com/i2c-arduino-raspberry-pi/
-
-/*
-  Arduino Slave for Raspberry Pi Master
-  i2c_slave_ard.ino
-  Connects to Raspberry Pi via I2C
-  
-  DroneBot Workshop 2019
-  https://dronebotworkshop.com
-*/
-
-// Include the Wire library for I2C
 #include <Wire.h>
+#include <SparkFun_TB6612.h>
 
-// LED on pin 13
-const int ledPin = 13; 
 
-void setup() {
-  // Join I2C bus as slave with address 8
-  Wire.begin(0x8);
-  
-  // Call receiveEvent when data received                
-  Wire.onReceive(receiveEvent);
-  
-  // Setup pin 13 as output and turn LED off
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, LOW);
-}   
+// Motor constants
+#define AIN1 5
+#define BIN1 7
+#define AIN2 4
+#define BIN2 8
+#define PWMA 2
+#define PWMB 6
+#define STBY 9
+// these constants are used to allow you to make your motor configuration 
+// line up with function names like forward.  Value can be 1 or -1
+const int offsetA = 1;
+const int offsetB = 1;
+Motor motor1 = Motor(AIN1, AIN2, PWMA, offsetA, STBY);
+Motor motor2 = Motor(BIN1, BIN2, PWMB, offsetB, STBY);
 
-// Function that executes whenever data is received from master
-void receiveEvent(int howMany) {
-  while (Wire.available()) { // loop through all but the last
-    char c = Wire.read(); // receive byte as a character
-    digitalWrite(ledPin, c);
+
+
+
+
+// Communication Constants
+const byte I2C_ADDRESS = 0x08;
+
+void read_py (String motor_control) {
+  String direction = motor_control.substring(4,7);
+  int speed = motor_control.substring(8).toInt();
+
+  Serial.println("read py has been called");
+
+  if (direction == "CWO") {
+    forward(motor1, motor2, speed);
+    delay(1000);
+
+
+   
+    Serial.print("direction:");
+    Serial.print(direction);
+    Serial.print(", Speed:");
+    Serial.println(speed);
+  }
+
+
+  else if (direction == "CCW") {
+    back(motor1, motor2, speed);
+    delay(1000);
+
+
+    Serial.print("direction:");
+    Serial.print(direction);
+    Serial.print(", Speed:");
+    Serial.println(speed);
   }
 }
 
-void loop() {
-  delay(100);
+
+
+void receiveEvent(int numBytes) {
+  char message[33];  // 32 payload bytes + null terminator
+  int index = 0;
+
+  while (Wire.available() && index < 32) {
+    message[index++] = (char)Wire.read();
+  }
+
+  message[index] = '\0';
+
+  Serial.print("Received: ");
+  Serial.println(message);
+  read_py(message);
 }
+
+
+void setup() {
+  Serial.begin(115200);
+
+  Wire.begin(I2C_ADDRESS);
+  Wire.onReceive(receiveEvent);
+}
+
+
+void loop() {
+}
+
+
+
+
+
