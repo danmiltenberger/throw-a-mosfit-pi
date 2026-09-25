@@ -39,8 +39,14 @@ def send_text_i2c(bus_number: int, arduino_address: int, text: str,
         bus.i2c_rdwr(message)
 
 
-send_text_i2c(
-    bus_number=1,
-    arduino_address=0x08,
-    text="Hello, Arduino!"
-)
+
+while True:
+    command = input("(command to arduino: ")
+
+    print(f"sending to arduino: {command}")
+
+    send_text_i2c(
+        bus_number=1,
+        arduino_address=0x08,
+        text=command
+    )
