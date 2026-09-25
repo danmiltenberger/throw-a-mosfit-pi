@@ -27,3 +27,4 @@ while numb == 1:
     command = 123456789012345
     print("sending command: {command}")
     bus.write_word_data(addr, 0, command)
+    

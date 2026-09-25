@@ -14,7 +14,7 @@
 # rpi: port 20 GND -> arduino GND
 
 
-from smbus import SMBus
+from smbus3 import SMBus
 
 addr = 0x8 # bus address
 bus = SMBus(1) # indicates /dev/ic2-1
