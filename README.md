@@ -10,3 +10,6 @@ Connect to pi from computer
 ssh throwing-a-mosfit@10.201.22.8
 password is TAM
 
+Sources we have used / referred to
+- https://www.perplexity.ai/search/d4c7c143-d2bc-43cd-b8b5-1b450ea3a9b7
+- https://dronebotworkshop.com  

@@ -1,20 +1,3 @@
-# https://www.perplexity.ai/search/d4c7c143-d2bc-43cd-b8b5-1b450ea3a9b7
-#  Raspberry Pi Master for Arduino Slave
-#  i2c_master_pi.py
-#  Connects to Arduino via I2C
-  
-#  DroneBot Workshop 2019
-#  https://dronebotworkshop.com
-
-# raspberry pi IP is 10.201.22.8
-# ssh throwing-a-mosfit@10.201.22.8
-
-
-# rpi: port 3 yellow -> arduino SDA
-# rpi: port 5 orange -> arduino SLC
-# rpi: port 20 GND -> arduino GND
-
-
 from smbus3 import SMBus, i2c_msg
 
 
@@ -54,14 +37,34 @@ def send_text_i2c(bus_number: int, arduino_address: int, text: str,
         bus.i2c_rdwr(message)
 
 
+def is_valid_command(command: str) -> bool:
+    '''
+    Command syntax is AAA DIR SPEED
+    example: MOT CCW 100
+    example: MOT CW0 255
+    '''
+
+    if command in ["quit", "q"]:
+        print("quitting program")
+        return False
+
+    else:
+        return True
+
+
+
+
 
 while True:
-    command = input("command to arduino: ")
+    command = input("type command (q to quit): ")
 
-    print(f"sending to arduino: {command}")
+    if is_valid_command(command):
 
-    send_text_i2c(
-        bus_number=1,
-        arduino_address=0x08,
-        text=command
-    )
+        send_text_i2c(
+            bus_number=1,
+            arduino_address=0x08,
+            text=command
+        )
+
+    else:
+        break
