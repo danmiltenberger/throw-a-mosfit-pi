@@ -52,19 +52,21 @@ def is_valid_command(command: str) -> bool:
         return True
 
 
+def main():
+    while True:
+        command = input("type command (q to quit): ")
 
+        if is_valid_command(command):
 
+            send_text_i2c(
+                bus_number=1,
+                arduino_address=0x08,
+                text=command
+            )
 
-while True:
-    command = input("type command (q to quit): ")
+        else:
+            break
 
-    if is_valid_command(command):
+if __name__ == "__main__":
+    main()
 
-        send_text_i2c(
-            bus_number=1,
-            arduino_address=0x08,
-            text=command
-        )
-
-    else:
-        break
