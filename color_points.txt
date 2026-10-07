@@ -1,5 +1,0 @@
-Image: /home/dan/throw-a-mosfit-pi/.temp/input_image.png
-HSV convention: H=0-179, S=0-255, V=0-255
-point	x	y	H	S	V
-brightest	550	424	179	215	145
-darkest	677	636	1	255	26
