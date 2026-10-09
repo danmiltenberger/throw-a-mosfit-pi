@@ -16,6 +16,9 @@ red_ball: dict = {
 
     "detection_frame_color" : (0, 255, 0),
     "name" : "red_ball",
+    "draw_shape" : "circle",
+    "draw_color" : (0,255,0),
+    "draw_thickness" : 5,
 
 }
 
