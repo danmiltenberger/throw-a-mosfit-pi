@@ -7,6 +7,19 @@ import cv2
 from vars import red_ball, kernel_size
 
 
+import os
+
+
+# https://www.geeksforgeeks.org/python/python-loop-through-folders-and-files-in-directory/
+
+
+
+def print_directory(given_dir):
+    for e in os.scandir(given_dir):
+        if e.is_file():
+            print(e)
+
+
 def save_cv2_frame_as_png(frame, output_path: str):
     if not cv2.imwrite(output_path, frame):
         raise OSError(f"Could not save to path {output_path}")
@@ -86,10 +99,10 @@ def get_clean_mask(mask: np.ndarray):
     return clean_mask
 
 
-def annotate_frame(frame, best_contour):
+def annotate_frame(frame, x_px, y_px, radius):
     frame_annotated = frame.copy()
 
-    (x_px, y_px), radius = cv2.minEnclosingCircle(best_contour)
+    
     center = (int(round(x_px)), int(round(y_px)))
 
     draw_radius = max(1, int(np.ceil(radius)))
@@ -172,9 +185,38 @@ def get_best_contour(contours, object_dict: dict):
     return best_contour, best_area
 
 
-def evaluate_frame(frame, object_dict: dict):
+def show_images_side_by_side(frame1, frame2, title : str ="side by side"):
+    # Source - https://stackoverflow.com/a/57792197
+    # Posted by Khan, modified by community. See post 'Timeline' for change history
+    # Retrieved 2026-10-08, License - CC BY-SA 4.0
+
+    numpy_horizontal_concat = np.concatenate((frame1, frame2), axis=1)
+    cv2.imshow(title, numpy_horizontal_concat)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+
+def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
+    '''
+    From a given frame, and a dictionary of information to look for in that frame, 
+    return a "verdict" dict with information on objects and positions
+    Optionally save the inbetween steps as pngs for debugging
+    '''
 
     unchanged_frame = frame.copy()
+
+    object_name = object_dict["name"]
+
+
+    verdict_dict: dict = {
+        "object_name" : object_name,
+        "is_detected" : False,
+        "draw_shape" : object_dict["draw_shape"],
+        "draw_color" : object_dict["draw_color"],
+        "draw_thickness" : object_dict["draw_thickness"]
+    }
 
 
     # convert to hsv for processing
@@ -186,47 +228,155 @@ def evaluate_frame(frame, object_dict: dict):
     # clean the mask by blurring and then re-evaluating
     clean_mask = get_clean_mask(mask)
 
-
     # get the contours from the mask
     contours, _ = cv2.findContours(
         mask, 
         cv2.RETR_EXTERNAL, 
         cv2.CHAIN_APPROX_SIMPLE)
 
-
+    # get the contours (lines that describe the different shapes)
     frame_with_contours = cv2.drawContours(frame, contours, -1, 0, -1)
 
     # evaluate the best contour
     best_contour, best_area = get_best_contour(contours, object_dict)
 
-    label = "object not detected"
     frame_annotated = unchanged_frame.copy()
+
+    # write useful values to the verdict dictionary
     if best_contour is not None:
-        frame_annotated, label = annotate_frame(frame_annotated, best_contour)
-
-    frame_annotated = add_text_to_frame(frame_annotated, label)
+        verdict_dict["is_detected"] = True
 
 
-    # save the images as pngs
-    save_cv2_frame_as_png(unchanged_frame, "open_cv_stack/0_original.png")
-    save_cv2_frame_as_png(hsv, "open_cv_stack/1_hsv.png")
-    save_cv2_frame_as_png(mask, "open_cv_stack/2_mask.png")
-    save_cv2_frame_as_png(clean_mask, "open_cv_stack/3_clean_mask.png")
-    save_cv2_frame_as_png(frame_with_contours, "open_cv_stack/4_frame_with_contours.png")
-    save_cv2_frame_as_png(frame_annotated, "open_cv_stack/5_frame_annotated.png")
+        if verdict_dict["draw_shape"] == "circle":
+            (x_px, y_px), radius = cv2.minEnclosingCircle(best_contour)
+            verdict_dict["radius"] = radius
+            verdict_dict["width"] = radius*2
 
-    pass
+        elif verdict_dict["draw_shape"] == "rectangle":
+            x_px, y_px, width_px, height_px = cv2.boundingRect(best_contour)
+            verdict_dict["width"] = width_px
+            verdict_dict["height"] = height_px
+
+        else:
+            raise ValueError("draw_shape not 'circle' or 'rectangle'")
+        
+        verdict_dict["x_px"] = x_px
+        verdict_dict["y_px"] = y_px
+
+
+    if save_as_pngs:
+        folder = "open_cv_stack"
+        save_cv2_frame_as_png(unchanged_frame,          f"{folder}/0_original.png")
+        save_cv2_frame_as_png(hsv,                      f"{folder}/1_hsv.png")
+        save_cv2_frame_as_png(mask,                     f"{folder}/2_mask.png")
+        save_cv2_frame_as_png(clean_mask,               f"{folder}/3_clean_mask.png")
+        save_cv2_frame_as_png(frame_with_contours,      f"{folder}/4_frame_with_contours.png")
+
+    return verdict_dict
+
+    
+
+def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
+    # read the verdict list and draw the relevant objects to frame
+
+    frame_annotated = frame.copy()
+
+    for verdict_dict in verdict_list:
+        verdict_dict : dict
+        object_name = verdict_dict["object_name"]
+
+        if verdict_dict["is_detected"] == False:
+            label = f"{object_name}: not detected"
+            frame_annotated = add_text_to_frame(frame_annotated, label)
+            return frame_annotated
+
+
+        else:
+            x_px = verdict_dict["x_px"]
+            y_px = verdict_dict["y_px"]
+
+            draw_color = verdict_dict["draw_color"]
+            draw_thickness = verdict_dict["draw_thickness"]
+
+            center = (int(round(x_px)), int(round(y_px)))
+
+            label = f"{object_name}: at {center}"
+            frame_annotated = add_text_to_frame(frame_annotated, label)
+
+
+            # draw small dot at the object center
+            if verbose_printout:
+                print(f"drew center dot for {object_name}")
+
+            frame_annotated = cv2.circle(
+                frame_annotated, 
+                center, 
+                3, 
+                draw_color, 
+                draw_thickness)
+
+            # draw circle bounding the object
+            if verdict_dict["draw_shape"] == "circle":
+                radius_px = verdict_dict["radius"]
+
+                # the radius will either be 1 or the measured radius
+                draw_radius = max(1, int(np.ceil(radius_px)))
+
+                if verbose_printout:
+                    print(f"drew bounding circle for {object_name}")
+
+                frame_annotated = cv2.circle(
+                    frame_annotated,
+                    center,
+                    draw_radius,
+                    draw_color,
+                    draw_thickness)
+
+            # draw rectangle bounding the object
+            if verdict_dict["draw_shape"] == "rectangle":
+                width_px = verdict_dict["width"]
+                height_px = verdict_dict["height"]
+
+
+
+                frame_annotated = cv2.rectangle(
+                    frame_annotated,
+                    (x_px, y_px),
+                    (x_px + width_px, y_px + height_px),
+                    draw_color,
+                    draw_thickness
+                )
+
+            
+                
+
+    return frame_annotated
 
 
 
 def main():
-    #input_path = r".temp/vlcsnap-2026-10-05-16h43m03s033.png"
+
 
     input_path = r".temp/vlcsnap-2026-10-07-15h58m42s688.png"
+    show_to_screen : bool = True
+
+
 
     frame = load_cv2_frame_from_png(input_path)
 
-    evaluate_frame(frame, red_ball)
+    unchanged_frame = frame.copy()
+
+    verdict_dict : dict = evaluate_frame(frame, red_ball)
+
+    print(verdict_dict)
+
+
+    if show_to_screen:
+        frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
+        cv2.imshow("annotated", frame_annotated)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
 
 
 
