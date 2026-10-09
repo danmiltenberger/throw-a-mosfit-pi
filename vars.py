@@ -1,6 +1,10 @@
 import numpy as np
 
 
+YELLOW = (0,255,255)
+CYAN = (255,255,0)
+
+
 ball_red: dict = {
     # # Red near the beginning of the hue scale.
     # "lower": np.array([0, 153, 50], dtype=np.uint8),
@@ -18,7 +22,6 @@ ball_red: dict = {
     "min_area" : 50,
     "min_circularity" : 0.6,
 
-    "detection_frame_color" : (0, 255, 0),
     "name" : "ball_red",
     "draw_shape" : "circle",
     "draw_color" : (0,255,0),
@@ -35,10 +38,9 @@ hat_cyan : dict = {
     "min_area" : 50,
     "min_circularity" : 0.6,
 
-    "detection_frame_color" : (0, 255, 0),
     "name" : "hat_cyan",
     "draw_shape" : "rectangle",
-    "draw_color" : (0,255,0),
+    "draw_color" : CYAN,
     "draw_thickness" : 5,
 }
 
@@ -52,10 +54,9 @@ hat_yellow : dict = {
     "min_area" : 50,
     "min_circularity" : 0.6,
 
-    "detection_frame_color" : (0, 255, 0),
     "name" : "hat_yellow",
     "draw_shape" : "rectangle",
-    "draw_color" : (0,255,0),
+    "draw_color" : YELLOW,
     "draw_thickness" : 5,
 }
 

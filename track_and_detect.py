@@ -34,8 +34,7 @@ def main():
             cv2.imshow('frame', frame)
 
 
-
-            annotated_frame = get_annotated_frame(frame, hat_yellow)
+            annotated_frame = get_annotated_frame(frame)
             cv2.imshow('annotated_frame', annotated_frame)
 
             # Break loop on 'q' key press

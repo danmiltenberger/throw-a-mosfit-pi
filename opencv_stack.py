@@ -4,7 +4,7 @@
 
 import numpy as np
 import cv2
-from vars import ball_red, kernel_size, hat_cyan, hat_yellow
+from vars import object_hsv_list, kernel_size, hat_yellow, hat_cyan, ball_red
 
 
 import os
@@ -285,7 +285,7 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
     frame_annotated = frame.copy()
 
     for verdict_dict in verdict_list:
-        verdict_dict : dict
+
         object_name = verdict_dict["object_name"]
 
         if verdict_dict["is_detected"] == False:
@@ -357,12 +357,18 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
 
 
 
-def get_annotated_frame(frame, target):
+def get_annotated_frame(frame):
     unchanged_frame = frame.copy()
 
+    
 
-    verdict = evaluate_frame(frame, target)
-    annotated_frame = draw_to_frame(unchanged_frame, [verdict])
+    yellow_verdict = evaluate_frame(frame, hat_yellow)
+    cyan_verdict = evaluate_frame(frame, hat_cyan)
+    red_verdict = evaluate_frame(frame, ball_red)
+
+    verdict_list = [yellow_verdict, cyan_verdict, red_verdict]
+
+    annotated_frame = draw_to_frame(unchanged_frame, verdict_list)
 
     return annotated_frame
 
