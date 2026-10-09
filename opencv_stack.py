@@ -274,6 +274,18 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False, show_al
 
 
 
+
+    if show_all_frames:
+        frame_annotated = draw_to_frame(unchanged_frame, verdict_dict)
+        cv2.imshow("unchanged", unchanged_frame)
+        cv2.imshow("hsv", hsv)
+        cv2.imshow("mask", mask)
+        cv2.imshow("clean mask", clean_mask)
+        cv2.imshow("frame w contours", frame_with_contours)
+        cv2.imshow("annotated", frame_annotated)
+
+
+
     return verdict_dict
 
     

@@ -32,14 +32,8 @@ def main():
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            unchanged_frame = frame.copy()
-    
-            verdict_dict : dict = evaluate_frame(frame, red_ball)
-            
-            frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
+            evaluate_frame(frame, red_ball, show_all_frames=True)
 
-            cv2.imshow('Annotated', frame_annotated)
-            cv2.imshow('Original', unchanged_frame)
             
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
