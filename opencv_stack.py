@@ -354,6 +354,19 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
 
 
 
+def eval_and_show(frame):
+
+    
+    unchanged_frame = frame.copy()
+    
+    verdict_dict : dict = evaluate_frame(frame, red_ball)
+    
+    frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
+
+    return frame_annotated
+
+
+
 def main():
 
 
