@@ -2,6 +2,7 @@ import cv2
 from picamera2 import Picamera2
 import time
 import sys
+from opencv_stack import eval_and_show
 
 # https://electricalflux.com/mcu-raspberry/opencv-raspberry-pi-camera-setup-debugging
 
@@ -29,15 +30,13 @@ def main():
             
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
-                
-            # Convert to grayscale for the Canny algorithm
-            gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-            
-            # Apply Canny edge detection (thresholds: 50, 150)
-            edges = cv2.Canny(gray, threshold1=50, threshold2=150)
+
+
+            annotated_frame = eval_and_show(frame)
+           
             
             # Display the processed frame
-            cv2.imshow('Pi5 OpenCV - Edge Detection', edges)
+            cv2.imshow('Annotated', annotated_frame)
             
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
