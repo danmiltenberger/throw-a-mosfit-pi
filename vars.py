@@ -3,61 +3,52 @@ import numpy as np
 
 YELLOW = (0,255,255)
 CYAN = (255,255,0)
+RED = (0,0,255)
+
+
+draw_thickness = 5
 
 
 ball_red: dict = {
-    # # Red near the beginning of the hue scale.
-    # "lower": np.array([0, 153, 50], dtype=np.uint8),
-    # "upper": np.array([10, 255, 255], dtype=np.uint8),
-
-    # # Red near the end of the hue scale.
-    # "lower2": np.array([170, 153, 50], dtype=np.uint8),
-    # "upper2": np.array([179, 255, 255], dtype=np.uint8),
 
     "lower" : np.array( [177, 65, 0] ),
     "upper" : np.array( [179, 255, 255] ),
 
-
     # evaluating contours
-    "min_area" : 50,
+    "min_area" : 250,
     "min_circularity" : 0.6,
 
     "name" : "ball_red",
     "draw_shape" : "circle",
-    "draw_color" : (0,255,0),
-    "draw_thickness" : 5,
+    "draw_color" : RED,
 }
+
 
 hat_cyan : dict = {
     "lower" : np.array( [81, 133, 0] ),
     "upper" : np.array( [106, 255, 255] ),
 
-
-
-    # evaluating contours
-    "min_area" : 50,
-    "min_circularity" : 0.6,
-
     "name" : "hat_cyan",
     "draw_shape" : "rectangle",
     "draw_color" : CYAN,
-    "draw_thickness" : 5,
+
+    "min_area" : 250,
 }
 
+
 hat_yellow : dict = {
-    "lower" : np.array( [21, 167, 0] ),
-    "upper" : np.array( [38, 255, 255] ),
-
-
-
-    # evaluating contours
-    "min_area" : 50,
-    "min_circularity" : 0.6,
-
     "name" : "hat_yellow",
     "draw_shape" : "rectangle",
     "draw_color" : YELLOW,
-    "draw_thickness" : 5,
+
+
+    "lower" : np.array( [21, 167, 0] ),
+    "upper" : np.array( [38, 255, 255] ),
+
+    # evaluating contours
+    "min_area" : 250,
+
+
 }
 
 

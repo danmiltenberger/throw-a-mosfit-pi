@@ -4,7 +4,7 @@
 
 import numpy as np
 import cv2
-from vars import object_hsv_list, kernel_size, hat_yellow, hat_cyan, ball_red
+from vars import object_hsv_list, kernel_size, hat_yellow, hat_cyan, ball_red, draw_thickness
 
 
 import os
@@ -107,7 +107,6 @@ def annotate_frame(frame, x_px, y_px, radius):
 
     draw_radius = max(1, int(np.ceil(radius)))
     draw_color = (0, 255, 0)
-    draw_thickness = 2
 
     # draw circle bounding the object
     frame_annotated = cv2.circle(
@@ -197,7 +196,6 @@ def show_images_side_by_side(frame1, frame2, title : str ="side by side"):
     cv2.destroyAllWindows()
 
 
-
 def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
     '''
     From a given frame, and a dictionary of information to look for in that frame, 
@@ -215,7 +213,6 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
         "is_detected" : False,
         "draw_shape" : object_dict["draw_shape"],
         "draw_color" : object_dict["draw_color"],
-        "draw_thickness" : object_dict["draw_thickness"]
     }
 
 
@@ -276,9 +273,6 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
     return verdict_dict
 
 
-
-
-
 def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
     # read the verdict list and draw the relevant objects to frame
 
@@ -299,7 +293,6 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
             y_px = verdict_dict["y_px"]
 
             draw_color = verdict_dict["draw_color"]
-            draw_thickness = verdict_dict["draw_thickness"]
 
             center = (int(round(x_px)), int(round(y_px)))
 
@@ -356,7 +349,6 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
     return frame_annotated
 
 
-
 def get_annotated_frame(frame):
     unchanged_frame = frame.copy()
 
@@ -371,7 +363,6 @@ def get_annotated_frame(frame):
     annotated_frame = draw_to_frame(unchanged_frame, verdict_list)
 
     return annotated_frame
-
 
 
 def main():
