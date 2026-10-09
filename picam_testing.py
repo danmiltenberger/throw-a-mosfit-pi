@@ -1,8 +1,9 @@
 import cv2
-from picamera2 import Picamera2
+from picamera2 import Picamera2 # type: ignore
 import time
 import sys
-from opencv_stack import eval_and_show
+from opencv_stack import evaluate_frame, draw_to_frame
+from vars import red_ball
 
 # https://electricalflux.com/mcu-raspberry/opencv-raspberry-pi-camera-setup-debugging
 
@@ -22,7 +23,7 @@ def main():
         # Allow the AGC (Automatic Gain Control) to settle
         time.sleep(1.0) 
         
-        print('Camera started. Press 'q' in the OpenCV window to quit.')
+        print("Camera started. Press 'q' in the OpenCV window to quit.")
         
         while True:
             # capture_array() returns a NumPy array directly
@@ -31,12 +32,14 @@ def main():
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-
-            annotated_frame = eval_and_show(frame)
-           
+            unchanged_frame = frame.copy()
+    
+            verdict_dict : dict = evaluate_frame(frame, red_ball)
             
-            # Display the processed frame
-            cv2.imshow('Annotated', annotated_frame)
+            frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
+
+            cv2.imshow('Annotated', frame_annotated)
+            cv2.imshow('Original', unchanged_frame)
             
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):

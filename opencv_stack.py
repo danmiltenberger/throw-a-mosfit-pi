@@ -198,7 +198,7 @@ def show_images_side_by_side(frame1, frame2, title : str ="side by side"):
 
 
 
-def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
+def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False, show_all_frames: bool = False):
     '''
     From a given frame, and a dictionary of information to look for in that frame, 
     return a "verdict" dict with information on objects and positions
@@ -271,6 +271,8 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
         save_cv2_frame_as_png(mask,                     f"{folder}/2_mask.png")
         save_cv2_frame_as_png(clean_mask,               f"{folder}/3_clean_mask.png")
         save_cv2_frame_as_png(frame_with_contours,      f"{folder}/4_frame_with_contours.png")
+
+
 
     return verdict_dict
 

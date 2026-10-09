@@ -15,7 +15,8 @@ red_ball: dict = {
     "min_circularity" : 0.6,
 
     "detection_frame_color" : (0, 255, 0),
-    "detection_label" : "red_ball",
+    "name" : "red_ball",
+
 }
 
 
