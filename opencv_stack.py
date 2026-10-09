@@ -4,7 +4,7 @@
 
 import numpy as np
 import cv2
-from vars import red_ball, kernel_size
+from vars import ball_red, kernel_size, hat_cyan, hat_yellow
 
 
 import os
@@ -355,6 +355,16 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
 
     return frame_annotated
 
+
+
+def get_annotated_frame(frame, target):
+    unchanged_frame = frame.copy()
+
+
+    verdict = evaluate_frame(frame, target)
+    annotated_frame = draw_to_frame(unchanged_frame, [verdict])
+
+    return annotated_frame
 
 
 

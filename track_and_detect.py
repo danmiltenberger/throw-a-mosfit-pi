@@ -2,17 +2,11 @@ import cv2
 from picamera2 import Picamera2 # type: ignore
 import time
 import sys
-from datetime import datetime
+from opencv_stack import get_annotated_frame
+from vars import hat_yellow, hat_cyan, ball_red
 
-from opencv_stack import save_cv2_frame_as_png
 
-
-def get_iso_string_name():
-    now = datetime.now()
-    iso_string = now.isoformat()
-    return iso_string
-
-def take_photo():
+def main():
     # Initialize the PiCamera2 object
     picam2 = Picamera2()
     
@@ -28,7 +22,7 @@ def take_photo():
         # Allow the AGC (Automatic Gain Control) to settle
         time.sleep(1.0) 
         
-        print("Camera started. Press 'q' in the OpenCV window to take photo.")
+        print("Camera started. Press 'q' in the OpenCV window to quit.")
         
         while True:
             # capture_array() returns a NumPy array directly
@@ -37,13 +31,15 @@ def take_photo():
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            cv2.imshow("press q to take photo", frame)
+            cv2.imshow('frame', frame)
+
+
+
+            annotated_frame = get_annotated_frame(frame, hat_yellow)
+            cv2.imshow('annotated_frame', annotated_frame)
 
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                save_cv2_frame_as_png(frame, "training_photos/" + get_iso_string_name() + ".png")
-
-
                 break
                 
     except Exception as e:
@@ -55,10 +51,6 @@ def take_photo():
         print('Stopping camera and releasing resources...')
         picam2.stop()
         cv2.destroyAllWindows()
-
-
-def main():
-    take_photo()
 
 if __name__ == '__main__':
     main()

@@ -9,7 +9,8 @@ def nothing(x):
     pass
 
 
-image_path = "/home/throwing-a-mosfit/throw-a-mosfit-pi/2026-10-09T14:55:08.133942.png"
+
+image_path = "training_photos/2026-10-09T15:45:55.234597.png"
 
 # Load image
 image = cv2.imread(image_path)
