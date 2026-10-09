@@ -198,7 +198,7 @@ def show_images_side_by_side(frame1, frame2, title : str ="side by side"):
 
 
 
-def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False, show_all_frames: bool = False):
+def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False,):
     '''
     From a given frame, and a dictionary of information to look for in that frame, 
     return a "verdict" dict with information on objects and positions
@@ -240,7 +240,6 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False, show_al
     # evaluate the best contour
     best_contour, best_area = get_best_contour(contours, object_dict)
 
-    frame_annotated = unchanged_frame.copy()
 
     # write useful values to the verdict dictionary
     if best_contour is not None:
@@ -274,23 +273,11 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False, show_al
 
 
 
-
-    if show_all_frames:
-        frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
-        cv2.imshow("unchanged", unchanged_frame)
-        cv2.imshow("hsv", hsv)
-        cv2.imshow("mask", mask)
-        cv2.imshow("clean mask", clean_mask)
-        cv2.imshow("frame w contours", frame_with_contours)
-        cv2.imshow("annotated", frame_annotated)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-
-
     return verdict_dict
 
-    
+
+
+
 
 def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
     # read the verdict list and draw the relevant objects to frame
@@ -378,7 +365,7 @@ def main():
     frame = load_cv2_frame_from_png(input_path)
 
 
-    evaluate_frame(frame, red_ball, show_all_frames=True)
+    evaluate_frame(frame, red_ball)
 
 
 

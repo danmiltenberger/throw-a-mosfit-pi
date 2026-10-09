@@ -2,12 +2,17 @@ import cv2
 from picamera2 import Picamera2 # type: ignore
 import time
 import sys
-from opencv_stack import evaluate_frame, draw_to_frame
-from vars import red_ball
+from datetime import datetime
 
-# https://electricalflux.com/mcu-raspberry/opencv-raspberry-pi-camera-setup-debugging
+from opencv_stack import save_cv2_frame_as_png
 
-def main():
+
+def get_iso_string_name():
+    now = datetime.now()
+    iso_string = now.isoformat()
+    return iso_string
+
+def take_photo():
     # Initialize the PiCamera2 object
     picam2 = Picamera2()
     
@@ -23,7 +28,7 @@ def main():
         # Allow the AGC (Automatic Gain Control) to settle
         time.sleep(1.0) 
         
-        print("Camera started. Press 'q' in the OpenCV window to quit.")
+        print("Camera started. Press 'q' in the OpenCV window to take photo.")
         
         while True:
             # capture_array() returns a NumPy array directly
@@ -32,11 +37,12 @@ def main():
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            evaluate_frame(frame, red_ball)
 
-            
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
+                save_cv2_frame_as_png(frame,get_iso_string_name())
+
+
                 break
                 
     except Exception as e:
@@ -48,6 +54,10 @@ def main():
         print('Stopping camera and releasing resources...')
         picam2.stop()
         cv2.destroyAllWindows()
+
+
+def main():
+    take_photo()
 
 if __name__ == '__main__':
     main()
