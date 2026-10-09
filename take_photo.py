@@ -37,10 +37,11 @@ def take_photo():
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
+            cv2.imshow("press q to take photo", frame)
 
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                save_cv2_frame_as_png(frame,get_iso_string_name())
+                save_cv2_frame_as_png(frame, get_iso_string_name() + ".png")
 
 
                 break
