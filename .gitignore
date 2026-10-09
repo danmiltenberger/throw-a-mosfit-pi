@@ -2,3 +2,6 @@
 /open_cv_stack
 /.venv
 /training_photos
+/lib64
+/bin
+/lib

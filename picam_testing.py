@@ -32,7 +32,7 @@ def main():
             if frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            evaluate_frame(frame, red_ball)
+            
 
             
             # Break loop on 'q' key press
