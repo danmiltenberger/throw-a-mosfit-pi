@@ -276,13 +276,15 @@ def evaluate_frame(frame, object_dict: dict, save_as_pngs: bool = False, show_al
 
 
     if show_all_frames:
-        frame_annotated = draw_to_frame(unchanged_frame, verdict_dict)
+        frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
         cv2.imshow("unchanged", unchanged_frame)
         cv2.imshow("hsv", hsv)
         cv2.imshow("mask", mask)
         cv2.imshow("clean mask", clean_mask)
         cv2.imshow("frame w contours", frame_with_contours)
         cv2.imshow("annotated", frame_annotated)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 
@@ -368,41 +370,15 @@ def draw_to_frame(frame, verdict_list, verbose_printout: bool = False):
 
 
 
-def eval_and_show(frame):
-
-    
-    unchanged_frame = frame.copy()
-    
-    verdict_dict : dict = evaluate_frame(frame, red_ball)
-    
-    frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
-
-    return frame_annotated
-
-
 
 def main():
 
 
-    input_path = r".temp/vlcsnap-2026-10-07-15h58m42s688.png"
-    show_to_screen : bool = True
-
-
-
+    input_path = "training_photos/vlcsnap-2026-10-06-14h47m22s202.png"
     frame = load_cv2_frame_from_png(input_path)
 
-    unchanged_frame = frame.copy()
 
-    verdict_dict : dict = evaluate_frame(frame, red_ball)
-
-    print(verdict_dict)
-
-
-    if show_to_screen:
-        frame_annotated = draw_to_frame(unchanged_frame, [verdict_dict])
-        cv2.imshow("annotated", frame_annotated)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    evaluate_frame(frame, red_ball, show_all_frames=True)
 
 
 
