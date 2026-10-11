@@ -1,7 +1,6 @@
 # load or take a photo, then get the hsv values from it
 from take_photo import take_photo
-from library import select_png, pick_from_list
-from opencv_stack import load_cv2_frame_from_png
+from vision_library import select_png, pick_from_list, load_cv2_frame_from_png
 import cv2
 from pathlib import Path
 import numpy as np

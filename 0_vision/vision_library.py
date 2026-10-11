@@ -1,4 +1,5 @@
 from pathlib import Path
+import cv2
 
 def select_png(directory):
     """
@@ -58,6 +59,20 @@ def pick_from_list(input_list: list, info_str: str = ""):
     return list_selection
 
 
+def save_cv2_frame_as_png(frame, output_path: str):
+    if not cv2.imwrite(output_path, frame):
+        raise OSError(f"Could not save to path {output_path}")
+
+    print(f"saved frame to path {output_path}")
+
+
+def load_cv2_frame_from_png(input_path: str):
+    frame = cv2.imread(input_path, cv2.IMREAD_COLOR)
+    if frame is None:
+        raise ValueError(f"Could not read PNG: {input_path}")
+
+    print(f"loaded frame from path {input_path}")
+    return frame
 
 
 # Example usage
