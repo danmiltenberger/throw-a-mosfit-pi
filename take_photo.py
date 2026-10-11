@@ -1,8 +1,12 @@
 import cv2
-from picamera2 import Picamera2 # type: ignore
 import time
 import sys
 from datetime import datetime
+
+try:
+    from picamera2 import Picamera2
+except ImportError:  # pragma: no cover - only used when the Pi camera library is unavailable.
+    Picamera2 = None  # type: ignore[assignment]
 
 from opencv_stack import save_cv2_frame_as_png
 
@@ -42,9 +46,8 @@ def take_photo():
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 save_cv2_frame_as_png(frame, "training_photos/" + get_iso_string_name() + ".png")
+                return frame
 
-
-                break
                 
     except Exception as e:
         print(f'Fatal runtime error: {e}', file=sys.stderr)
