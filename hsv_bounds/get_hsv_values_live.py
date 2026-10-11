@@ -245,7 +245,7 @@ def main():
     ]
 
     selection = pick_from_list(list_of_options, "select which object hsv to update")
-    output_txt = hsv_dir + "/" + str(selection)
+    output_txt = str(selection)
 
     selected_png = select_png(directory=photos_and_vids_dir)
 
