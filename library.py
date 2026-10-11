@@ -41,6 +41,25 @@ def select_png(directory):
         print("Invalid selection. Please enter a number from the list.")
 
 
+def pick_from_list(input_list: list, info_str: str = ""):
+
+    print(info_str)
+
+    index = 0
+    for item in input_list:
+        print(f"{index}: {item}")
+        index +=1
+
+    user_choice = input("select a number from above list: ")
+    user_choice = int(user_choice)
+
+    list_selection = input_list[user_choice]
+
+    return list_selection
+
+
+
+
 # Example usage
 if __name__ == "__main__":
     image = select_png("path/to/your/images")

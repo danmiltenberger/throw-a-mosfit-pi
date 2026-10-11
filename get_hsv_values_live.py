@@ -1,6 +1,6 @@
 # load or take a photo, then get the hsv values from it
 from take_photo import take_photo
-from directory_utils import select_png
+from library import select_png, pick_from_list
 from opencv_stack import load_cv2_frame_from_png
 import cv2
 from pathlib import Path
@@ -235,8 +235,17 @@ def main():
     #frame = get_or_load_frame()
 
     #output_txt = hsv_dir + "/ball_red.txt"
-    output_txt = hsv_dir + "/hat_yellow.txt"
+    #output_txt = hsv_dir + "/hat_yellow.txt"
     #output_txt = hsv_dir + "/hat_cyan.txt"
+
+    list_of_options = [
+        "ball_red",
+        "hat_yellow",
+        "hat_cyan",
+    ]
+
+    selection = pick_from_list(list_of_options, "select which object hsv to update")
+    output_txt = hsv_dir + "/" + str(selection)
 
     selected_png = select_png(directory=photos_and_vids_dir)
 

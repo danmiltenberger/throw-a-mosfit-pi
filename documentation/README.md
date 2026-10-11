@@ -9,3 +9,4 @@ Orange SCL left 3rd (5) to mega SDA
 Connect to pi from computer:
 ssh throwing-a-mosfit@10.201.22.8
 password is TAM
+
