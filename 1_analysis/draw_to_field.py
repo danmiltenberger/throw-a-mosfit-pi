@@ -8,6 +8,7 @@ from convert_front_to_top_down import *
 
 RADIUS_ROBOT = int(14*PIXELS_PER_INCH/2)
 RADIUS_BALL = int(7*PIXELS_PER_INCH/2)
+RADIUS_TENNIS_BALL = int(2.7*PIXELS_PER_INCH/2)
 
 
 def draw_labeled_circle(
@@ -173,6 +174,14 @@ ball_red = {
     "color" : RED,
 }
 
+ball_yellow = {
+    "label" : "ball",
+    "center" : center_field_px,
+    "radius" : RADIUS_TENNIS_BALL,
+    "color" : YELLOW,
+}
+
+
 robot_us = {
     "label" : "US",
     "center" : goalbox_center_bot_px,
@@ -187,7 +196,7 @@ robot_them = {
     "color" : CYAN,
 }
 
-obj_list = [ball_red, robot_us, robot_them]
+obj_list = [ball_yellow, robot_us, robot_them]
 
 if __name__ == "__main__":
 

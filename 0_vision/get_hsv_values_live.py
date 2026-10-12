@@ -241,10 +241,12 @@ def main():
         "ball_red",
         "hat_yellow",
         "hat_cyan",
+        "ball_yellow",
     ]
 
     selection = pick_from_list(list_of_options, "select which object hsv to update")
     output_txt = str(selection)
+    output_txt = "0_vision/" + hsv_dir + "/" + output_txt + ".txt"
 
     selected_png = select_png(directory=photos_and_vids_dir)
 

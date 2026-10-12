@@ -45,10 +45,7 @@ hat_yellow : dict = {
     "lower" : np.array( [21, 167, 0] ),
     "upper" : np.array( [38, 255, 255] ),
 
-    # evaluating contours
     "min_area" : 250,
-
-
 }
 
 
