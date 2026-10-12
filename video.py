@@ -131,3 +131,16 @@ def preview_video(
         finally:
             if window_created:
                 cv2.destroyWindow(window_name)
+
+if __name__ == "__main__":
+    # Default USB webcam
+    #preview_video(0)
+
+    # Second webcam
+    #preview_video(1)
+
+    # Raspberry Pi camera using Picamera2
+    preview_video("picam")
+
+    # Video file, with the original countdown behavior
+    #preview_video("videos/test_video.mp4")
