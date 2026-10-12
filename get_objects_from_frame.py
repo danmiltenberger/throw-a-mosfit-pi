@@ -24,7 +24,7 @@ ball_red: dict = {
 
 ball_yellow : dict = {
     "name" : "ball_yellow",
-    "shape" : RECT,
+    "shape" : CIRCLE,
     "path_to_hsv" : "hsv_bounds/ball_yellow.txt",
     "known_width_in" : 2.7,
     "color" : YELLOW,

@@ -70,13 +70,16 @@ def to_base_frame(
     return x, y, theta
 
 
-def convert_in_point_to_screen(point : tuple[int,int]) -> tuple[int, int]:
+def convert_in_point_to_screen(point) -> tuple[int, int]:
 
     # the screen measures down and right from the top left,
     # but we measure the field +up and +right from the center
 
     # an input of 0,0 should result in window_x/2, window_y /2
     inch_x, inch_y = point
+
+    inch_x = int(inch_x)
+    inch_y = int(inch_y)
 
 
     px_x = convert_to_px(inch_x)
@@ -119,7 +122,7 @@ def load_dicts_from_txt(filename="output.txt"):
         return []
 
 
-def convert_to_top_down(verdict: dict, robot_x, robot_y, robot_theta ):
+def convert_to_top_down(verdict: dict, robot: dict ):
     '''
     from the camera's understanding of pixel center and apparent width, convert to angle and distance
 
@@ -136,28 +139,35 @@ def convert_to_top_down(verdict: dict, robot_x, robot_y, robot_theta ):
     }
     '''
 
+    # read the status of the robot
+    robot_in_x, robot_in_y = robot["center_in"]
+    robot_theta = robot["theta_rad"]
+
+
+    # determine the angle the object is at
     px_x = verdict["center_x"]
+    verdict["theta_rad"] = calc_angle(px_x, screen_px_x)
 
-    angle = calc_angle(px_x, screen_px_x)
 
-    obj_dis_in = calc_new_distance(
+    # determine the distance the object is at
+    verdict["distance_in"] = calc_new_distance(
         known= verdict["known_width_in"],
         percieved= verdict["width"])
 
-    x_in, y_in, theta = to_base_frame(
-        ref_x= robot_x,
-        ref_y= robot_y,
-        ref_theta= robot_theta,
-        distance= obj_dis_in,
-        angle= angle)
 
-    x_in = round(x_in)
-    y_in = round(y_in)
+    # change the coordinate system from the robot reference to the global reference
+    verdict["center_in"] = convert_robot_dis_and_angle_to_global(
+        angle_rad_robot= robot["theta_rad"],
+        angle_rad_to_obj=verdict["theta_rad"],
+        robot_x= robot_in_x,
+        robot_y= robot_in_y,
+        distance= verdict["distance_in"]
+    )
 
-   
-    
-    verdict["center_in"] = (x_in, y_in)
-    verdict["center_px"] = convert_in_point_to_screen((x_in, y_in))
+
+    # convert the inches measurement to screen pixels
+    verdict["center_px"] = convert_in_point_to_screen(verdict["center_in"])
+
     return verdict
 
 
@@ -171,10 +181,10 @@ def calc_angle(center_px_x, screen_px_x)-> float:
     return degrees
 
 
-def convert_robot_dis_and_angle_to_global(distance: float, angle_degrees: float, robot_x: float, robot_y: float, robot_angle: float):
+def convert_robot_dis_and_angle_to_global(distance: float, angle_rad_to_obj: float, robot_x: float, robot_y: float, angle_rad_robot):
 
-    object_x = robot_x + distance * math.cos(math.radians(angle_degrees))
-    object_y = robot_y + distance * math.cos(math.radians(angle_degrees))
+    object_x = robot_x + distance * math.cos(angle_rad_to_obj + angle_rad_robot)
+    object_y = robot_y + distance * math.sin(angle_rad_to_obj + angle_rad_robot)
 
     return object_x, object_y
 
@@ -459,6 +469,7 @@ def draw_circle_with_arrow(
 
 
     arrow_length = int(radius*2)
+    radius = int(radius)
 
     if radius <= 0 or arrow_length <= 0 or thickness < 1:
         raise ValueError("radius, arrow_length, and thickness must be positive")
@@ -490,66 +501,55 @@ def draw_circle_with_arrow(
 
 if __name__ == "__main__":
 
-    # directory = "obj_lists"
-
-    # most_recent_obj_list = get_most_recent_file(directory)
-    # obj_list : list = load_dicts_from_txt(str(most_recent_obj_list))
-
-
-    # robot_x, robot_y = goalbox_center_bot_in
-    # robot_theta = 0
-
-    # for obj in obj_list:
-    #     ojb = convert_to_top_down(obj, robot_x, robot_y, robot_theta)
-
 
     # load the png or create it if necessary
-    file_path = Path("1empty_field.png")
+    file_path = Path("empty_field.png")
     if file_path.is_file():
         frame : np.ndarray = cv2.imread(file_path) # type: ignore
     else:
         frame = draw_empty_field()
 
 
+    directory = "obj_lists"
+    most_recent_obj_list = get_most_recent_file(directory)
+    obj_list : list = load_dicts_from_txt(str(most_recent_obj_list))
 
-    # manually add a robot at our goalbox center
-    center_px = convert_in_point_to_screen((goalbox_center_bot_in))
 
-    robot = {
+    robot_field_goal = {
         "name" : "our_bot",
         "center_in" : goalbox_center_bot_in, 
-        "center_px" : center_px,
+        "center_px" : convert_in_point_to_screen((goalbox_center_bot_in)),
         "radius" : RADIUS_ROBOT,
-        "color" : WHITE,
-        "theta_rad" : math.radians(45)
-
+        "color" : CYAN,
+        "theta_rad" : math.radians(90)      # up screen
     }
 
-
-    # manually add a ball as seen from our robot
-
-    # 24'' infront of robot
-    ball_center_px = convert_in_point_to_screen((0, -60 + 24))
-
-    # ball = {
-    #     "name" : "ball",
-    #     "radius" : RADIUS_BALL,
-    #     "color" : RED,
-    #     "center_px": ball_center_px
-    # }
-
+    # FIXME manually set the robot centered in our goal box
+    robot = robot_field_goal
 
     frame = draw_circle_with_arrow(
         angle= robot["theta_rad"],
-        color=YELLOW,
+        color=robot["color"],
         frame= frame,
-        point= robot["center_px"]
+        point= robot["center_px"],
+        radius= robot["radius"]
     )
 
 
+    for obj in obj_list:
+        ojb = convert_to_top_down(obj, robot_field_goal)
 
+        ic(obj)
 
-    #frame = draw_line(frame, ball["center_px"], robot["center_px"], color= RED)
+        # draw object
+        frame = draw_circle_with_arrow(
+            angle= ojb["theta_rad"],
+            color=ojb["color"],
+            frame= frame,
+            point= ojb["center_px"],
+            radius= obj["radius"]
+        )
+
 
     cv2.imshow("updated field", frame)
     cv2.waitKey(0)
