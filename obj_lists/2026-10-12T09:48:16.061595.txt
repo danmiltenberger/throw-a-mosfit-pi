@@ -1,0 +1,20 @@
+[
+    {
+        "name": "ball_yellow",
+        "shape": "CIRCLE",
+        "color": [
+            0,
+            255,
+            255
+        ],
+        "known_width_in": 2.7,
+        "center_x": 154.9490966796875,
+        "center_y": 331.63134765625,
+        "radius": 38.199825286865234,
+        "width": 76.39965057373047,
+        "area": 4584.295729679215,
+        "distance_in": 44.29338451926856,
+        "theta_rad": 17.54887493922983,
+        "label": "ball_yellow width_px 76, width_in actual: 3, distance_in: 44, deg 1005"
+    }
+]

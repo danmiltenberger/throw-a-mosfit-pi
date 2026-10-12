@@ -7,7 +7,7 @@ from datetime import datetime
 from icecream import ic
 import json
 from opencv_colors import *
-
+import math
 
 kernel_size = 3
 
@@ -52,6 +52,47 @@ search_for_list = [
     hat_cyan,
     #hat_yellow,
 ]
+
+
+FOCAL_LENGTH = 1253.333     # recalc this when able
+SCREEN_PX_X = 640
+SCREEN_PX_Y = 480
+
+
+
+def calculate_focal_length():
+    # in this example, a tennis ball
+    # D = known diameter / length / height etc
+    # d = percieved diameter / etc
+    # Z = known distance to object
+    D = 2.7
+    d = 47
+    Z = 6*12
+
+    focal_length = (d*Z)/D
+    ic(focal_length)
+
+
+    return focal_length
+
+
+def calc_distance(known: float, percieved: float) -> float:
+    D = known
+    d = percieved
+    f = FOCAL_LENGTH
+    Z = (D*f) / d
+
+    return Z
+
+
+def calc_angle(center_px_x, screen_px_x)-> float:
+    pixels_per_degree = 27.64
+    degrees_per_pixel = 1/ pixels_per_degree
+
+    delta_x_px = screen_px_x - center_px_x
+    degrees = delta_x_px * degrees_per_pixel
+
+    return degrees
 
 
 def get_current_time() -> str:
@@ -247,6 +288,22 @@ def save_dicts_to_json_txt(data_list, filename=""):
         print(f"❌ Error saving file: {e}")
 
 
+def create_label_line(verdict: dict) -> str:
+    label = ""
+
+    name = verdict["name"]
+
+    area_px = round(verdict["area"])
+    width_px = round(verdict["width"])
+    width_in = round(verdict["known_width_in"])
+    distance_in = round(verdict["distance_in"])
+    angle_deg = round(math.degrees(verdict["theta_rad"]))
+
+    label = f"{name} width_px {width_px}, width_in actual: {width_in}, distance_in: {distance_in}, deg {angle_deg}"
+
+    return label
+
+
 def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) -> list:
 
     obj_list = []
@@ -285,9 +342,11 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
         # copy over the useful stuff
         verdict["name"] = obj_name
         verdict["shape"] = object_dict["shape"]
-        verdict["known_width_in"] = object_dict["known_width_in"]
+        
         verdict["color"] = object_dict["color"]
+        verdict["known_width_in"] = object_dict["known_width_in"]
 
+        # analyze either as a circle or rectangle
         if object_dict["shape"] == CIRCLE:
             (x,y), radius = cv2.minEnclosingCircle(best_contour)
             verdict["center_x"] = x
@@ -310,6 +369,19 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
 
             verdict["area"] = width * height
 
+        # convert from pixel width to inches 
+        verdict["distance_in"] = calc_distance(
+            known= object_dict["known_width_in"],
+            percieved= verdict["width"],
+        )
+
+        # convert the horizontal pixel distance from center to angle
+        verdict["theta_rad"] = calc_angle(
+            center_px_x=verdict["center_x"],
+            screen_px_x= SCREEN_PX_X)
+
+        verdict["label"] = create_label_line(verdict)
+
         obj_list.append(verdict)
 
     if save_as_file:
@@ -319,7 +391,7 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
     return obj_list
 
 
-def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
+def draw_object_list_to_frame(frame: np.ndarray, obj_list: list, draw_arrows: bool = False):
     WHITE = (255,255,255)
     THICKNESS = 1
 
@@ -327,18 +399,19 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
 
     for object_dict in obj_list:
         object_dict : dict
-        name = object_dict["name"]
 
-        center_x = int(object_dict["center_x"])
-        center_y = int(object_dict["center_y"])
+
+        shape_center_x = int(object_dict["center_x"])
+        shape_center_y = int(object_dict["center_y"])
         width = int(object_dict["width"])
+        color = object_dict["color"]
 
-        label = f'{name} area: {object_dict["area"]}, width_px: {width}'
+        label = object_dict["label"]
 
         write_list.append(label)
 
 
-        shape_center = (center_x, center_y)
+        shape_center = (shape_center_x, shape_center_y)
 
         if object_dict["shape"] == CIRCLE:
             radius = object_dict["radius"]
@@ -346,7 +419,7 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
                 img= frame,
                 radius=int(radius),
                 center=shape_center,
-                color= WHITE,
+                color= color,
                 thickness=THICKNESS
             )
 
@@ -358,10 +431,61 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
             frame = cv2.rectangle(
                 img=frame,
                 pt1=shape_center,
-                pt2=(center_x + width, center_y + height),
-                color=WHITE,
+                pt2=(shape_center_x + width, shape_center_y + height),
+                color=color,
                 thickness=THICKNESS
             )
+
+        if draw_arrows:
+            # draw an arrow from the center of the object to the center of the frame
+            screen_center_x = int(SCREEN_PX_X / 2)
+            screen_center_y = int(SCREEN_PX_Y / 2)
+            screen_center = (screen_center_x, screen_center_y)
+
+
+            delta_x_px = abs(screen_center_x-shape_center_x)
+            delta_y_px = abs(screen_center_y-shape_center_y)
+
+            arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px,2))
+            arrow_length = round(arrow_length)
+
+            # # draw to center
+            # frame = draw_labeled_arrow(
+            #     frame= frame,
+            #     color= BLACK,
+            #     point1=shape_center,
+            #     point2= screen_center,
+            #     label=f"px: {arrow_length}"
+            # )
+
+            # draw along x axis
+            frame = draw_labeled_arrow(
+                frame= frame,
+                color= BLUE,
+                point1=(shape_center_x, shape_center_y),
+                point2= (screen_center_x, shape_center_y),
+                label=f"px: {delta_x_px}"
+            )
+
+            # # draw along y axis
+            # frame = draw_labeled_arrow(
+            #     frame= frame,
+            #     color= RED,
+            #     point1=(screen_center_x, shape_center_y),
+            #     point2= (screen_center_x, screen_center_y),
+            #     label=f"px: {delta_y_px}"
+            # )
+
+            # draw vertical arrow showing screen center
+            frame = cv2.line(
+                frame,
+                pt1=(screen_center_x, 0),
+                pt2=(screen_center_x, SCREEN_PX_Y),
+                color=WHITE,
+            )
+
+
+        
 
     frame = draw_list_on_frame(frame, write_list)
 
@@ -429,15 +553,82 @@ def draw_list_on_frame(
     return frame
 
 
+def draw_labeled_arrow(
+    frame: np.ndarray,
+    point1: tuple[float, float],
+    point2: tuple[float, float],
+    label: str,
+    color: tuple[int, int, int] = (0, 255, 0),
+    thickness: int = 2,
+    font_scale: float = 0.6,
+    label_offset: tuple[int, int] = (0, -10),
+    tip_length: float = 0.15,
+) -> np.ndarray:
+    """
+    Draw an arrow from point1 to point2 with a label near its midpoint.
+
+    Args:
+        frame: OpenCV BGR image. Modified in place.
+        point1: Arrow start (pixel_x, pixel_y).
+        point2: Arrow tip (pixel_x, pixel_y).
+        label: Text displayed near the arrow's midpoint.
+        color: Arrow and text color in BGR order.
+        thickness: Arrow stroke width in pixels.
+        font_scale: Text size multiplier.
+        label_offset: (dx, dy) offset of the label's center from the
+            arrow midpoint. Negative dy moves the label upward.
+        tip_length: Arrowhead length as a fraction of the arrow length.
+
+    Returns:
+        The modified frame.
+    """
+    if thickness < 1 or font_scale <= 0:
+        raise ValueError("thickness and font_scale must be positive")
+    if not 0 < tip_length <= 1:
+        raise ValueError("tip_length must be in (0, 1]")
+
+    p1 = tuple(int(round(v)) for v in point1)
+    p2 = tuple(int(round(v)) for v in point2)
+
+    cv2.arrowedLine(
+        frame, p1, p2, color,
+        thickness=thickness,
+        line_type=cv2.LINE_AA,
+        tipLength=tip_length,
+    )
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text_thickness = 1
+    text = str(label)
+    (text_width, text_height), baseline = cv2.getTextSize(
+        text, font, font_scale, text_thickness
+    )
+
+    center_x = (p1[0] + p2[0]) / 2 + label_offset[0]
+    center_y = (p1[1] + p2[1]) / 2 + label_offset[1]
+
+    text_origin = (
+        int(round(center_x - text_width / 2)),
+        int(round(center_y + (text_height - baseline) / 2)),
+    )
+
+    cv2.putText(
+        frame, text, text_origin, font, font_scale, color,
+        thickness=text_thickness,
+        lineType=cv2.LINE_AA,
+    )
+
+    return frame
+
+
+
 def main():
     path = "training_photos/2026-10-11T20_53_56.553302.png"
     frame : np.ndarray = cv2.imread(path) # type: ignore
     frame_unchanged : np.ndarray = frame.copy()
 
     obj_list : list = get_object_list_from_frame(frame, save_as_file=True)
-
-
-    frame_annotated : np.ndarray = draw_object_list_to_frame(frame_unchanged, obj_list)
+    frame_annotated : np.ndarray = draw_object_list_to_frame(frame_unchanged, obj_list, draw_arrows=True)
 
     cv2.imshow("annotated", frame_annotated)
     cv2.waitKey(0)

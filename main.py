@@ -1,0 +1,61 @@
+from picamera2 import Picamera2 # type: ignore
+import time
+import cv2
+from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y, get_object_list_from_frame, draw_object_list_to_frame
+import numpy as np
+import sys
+
+
+def main():
+    # Initialize the PiCamera2 object
+    picam2 = Picamera2()
+    
+    # Configure for OpenCV: RGB888 format prevents BGR/RGB confusion
+    # 640x480 keeps CPU load low for real-time edge detection on Pi 5
+    config = picam2.create_preview_configuration(
+        main={'format': 'RGB888', 'size': (SCREEN_PX_X, SCREEN_PX_Y)}
+    )
+    picam2.configure(config)
+    
+    try:
+        picam2.start()
+        # Allow the AGC (Automatic Gain Control) to settle
+        time.sleep(1.0) 
+        
+        print("Camera started. Press 'q' in the OpenCV window to quit.")
+        
+        while True:
+            # capture_array() returns a NumPy array directly
+            frame = picam2.capture_array()
+            
+            if frame is None:
+                raise ValueError('Received empty frame buffer from libcamera.')
+
+            cv2.imshow('frame', frame)
+            frame_unchanged = frame.copy()
+
+            obj_list : list = get_object_list_from_frame(frame, save_as_file=True)
+            frame_annotated : np.ndarray = draw_object_list_to_frame(
+                frame_unchanged, 
+                obj_list, 
+                draw_arrows=True)
+
+
+            cv2.imshow('annotated_frame', frame_annotated)
+
+            # Break loop on 'q' key press
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+                
+    except Exception as e:
+        print(f'Fatal runtime error: {e}', file=sys.stderr)
+        sys.exit(1)
+        
+    finally:
+        # Crucial: Always stop the camera to release libcamera buffers
+        print('Stopping camera and releasing resources...')
+        picam2.stop()
+        cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    main()

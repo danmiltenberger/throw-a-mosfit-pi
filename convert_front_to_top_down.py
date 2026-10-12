@@ -17,7 +17,6 @@ from typing import Optional
 from pathlib import Path
 
 
-screen_px_x = 640
 
 field_center_in = (0,0)
 
@@ -33,7 +32,7 @@ goalbox_center_bot_in = (0, -60)
 goalbox_center_top_in = (0, +60)
 
 
-FOCAL_LENGTH = 1253.333     # recalc this when able
+
 
 
 def to_base_frame(
@@ -141,18 +140,6 @@ def convert_to_top_down(verdict: dict, robot: dict ):
 
     # read the status of the robot
     robot_in_x, robot_in_y = robot["center_in"]
-    robot_theta = robot["theta_rad"]
-
-
-    # determine the angle the object is at
-    px_x = verdict["center_x"]
-    verdict["theta_rad"] = calc_angle(px_x, screen_px_x)
-
-
-    # determine the distance the object is at
-    verdict["distance_in"] = calc_new_distance(
-        known= verdict["known_width_in"],
-        percieved= verdict["width"])
 
 
     # change the coordinate system from the robot reference to the global reference
@@ -171,15 +158,6 @@ def convert_to_top_down(verdict: dict, robot: dict ):
     return verdict
 
 
-def calc_angle(center_px_x, screen_px_x)-> float:
-    pixels_per_degree = 27.64
-    degrees_per_pixel = 1/ pixels_per_degree
-
-    delta_x_px = screen_px_x - center_px_x
-    degrees = delta_x_px * degrees_per_pixel
-
-    return degrees
-
 
 def convert_robot_dis_and_angle_to_global(distance: float, angle_rad_to_obj: float, robot_x: float, robot_y: float, angle_rad_robot):
 
@@ -189,29 +167,8 @@ def convert_robot_dis_and_angle_to_global(distance: float, angle_rad_to_obj: flo
     return object_x, object_y
 
     
-def calculate_focal_length():
-    # in this example, a tennis ball
-    # D = known diameter / length / height etc
-    # d = percieved diameter / etc
-    # Z = known distance to object
-    D = 2.7
-    d = 47
-    Z = 6*12
-
-    focal_length = (d*Z)/D
-    ic(focal_length)
 
 
-    return focal_length
-
-
-def calc_new_distance(known: float, percieved: float) -> float:
-    D = known
-    d = percieved
-    f = FOCAL_LENGTH
-    Z = (D*f) / d
-
-    return Z
 
 
 RADIUS_ROBOT = int(14*PIXELS_PER_INCH/2)
