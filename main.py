@@ -5,7 +5,7 @@ from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y, get_object_list_fro
 import numpy as np
 import sys
 from pathlib import Path
-from display import show_frames_side_by_side
+from display import show_frames_side_by_side, get_side_and_top_down
 from convert_front_to_top_down import draw_object_list_to_field
 
 
@@ -38,24 +38,7 @@ def main():
             if frame_camera is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            frame_unchanged = frame_camera.copy()
-            field_unchanged = frame_empty_field.copy()
-
-            
-
-            obj_list : list = get_object_list_from_frame(frame_camera, save_as_file=False)
-            frame_annotated : np.ndarray = draw_object_list_to_frame(
-                frame_unchanged, 
-                obj_list, 
-                draw_arrows=True)
-
-            field_annotated : np.ndarray = draw_object_list_to_field(
-                at_goalbox_center=True,
-                field_frame= field_unchanged,
-                object_list= obj_list
-            )
-            combined_frame = show_frames_side_by_side(frame_annotated, field_annotated)
-
+            combined_frame, object_list = get_side_and_top_down(frame_camera, frame_black_field)
             cv2.imshow('frame and field', combined_frame)
 
             # Break loop on 'q' key press

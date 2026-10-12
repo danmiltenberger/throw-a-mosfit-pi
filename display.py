@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from get_objects_from_frame import get_object_list_from_frame, draw_object_list_to_frame
+from convert_front_to_top_down import draw_object_list_to_field
 
 
 def show_frames_side_by_side(
@@ -43,8 +45,32 @@ def show_frames_side_by_side(
     combined = np.hstack(
         (resize_to_height(frame_left), resize_to_height(frame_right))
     )
-    cv2.imshow(window_name, combined)
+    #cv2.imshow(window_name, combined)
     return combined
+
+
+def get_side_and_top_down(frame_camera: np.ndarray, frame_field: np.ndarray):
+
+    frame_unchanged = frame_camera.copy()
+    field_unchanged = frame_field.copy()
+
+
+    obj_list : list = get_object_list_from_frame(frame_camera, save_as_file=False)
+    frame_annotated : np.ndarray = draw_object_list_to_frame(
+        frame_unchanged, 
+        obj_list, 
+        draw_arrows=True)
+
+    field_annotated : np.ndarray = draw_object_list_to_field(
+        at_goalbox_center=True,
+        field_frame= field_unchanged,
+        object_list= obj_list
+    )
+    combined_frame = show_frames_side_by_side(frame_annotated, field_annotated)
+
+    return combined_frame, obj_list
+
+
 
 if __name__ == "__main__":
     frame_left = cv2.imread("training_photos/2026-10-11T20_53_44.168011.png")
