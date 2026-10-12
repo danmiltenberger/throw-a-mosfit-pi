@@ -9,16 +9,11 @@
 # right screen is positive, east
 # angles are measured as a deviation from north, ex: northwest is -45, northeast is 45
 from opencv_colors import *
-from draw_field import *
+from draw_empty_field import *
+from icecream import ic
+import json
 
 field_center_in = (0,0)
-
-# field in inches including goal depth and extension around tape is 
-# (12+12+12*12) = 168 long
-# (4+4+8*12) = 104 wide
-# measured from the top left, the field center is 
-# 4+4*12 = 52 in from the left
-# (goalnet + playing area) /2 = 24 + 6*12 = 96 from the top
 
 field_center_px_x = convert_to_px(52)
 field_center_px_y = convert_to_px(84)
@@ -26,6 +21,9 @@ field_center_px_y = convert_to_px(84)
 field_center_to_goalbox_center_in = 60
 goalbox_center_bot_in = (0, -60)
 goalbox_center_top_in = (0, +60)
+
+
+FOCAL_LENGTH = 1253.333     # recalc this when able
 
 
 def convert_in_point_to_screen(point : tuple[int,int]) -> tuple[int, int]:
@@ -55,15 +53,88 @@ goalbox_center_bot_px = convert_in_point_to_screen(point=goalbox_center_bot_in)
 center_field_px = convert_in_point_to_screen(point=(0,0))
 
 
+def load_dicts_from_txt(filename="output.txt"):
+    """
+    Loads a text file formatted in JSON and returns it as a list of dictionaries.
+    """
+    try:
+        with open(filename, "r", encoding="utf-8") as file:
+            data_list = json.load(file)
+        print(f"Successfully loaded data from {filename}")
+        return data_list
+    except FileNotFoundError:
+        print(f"❌ Error: The file '{filename}' does not exist.")
+        return []
+    except json.JSONDecodeError:
+        print(f"❌ Error: The file '{filename}' is not valid JSON text.")
+        return []
+    except Exception as e:
+        print(f"❌ Error loading file: {e}")
+        return []
+
+
 def convert_to_top_down(verdict: dict):
     '''
     from the camera's understanding of pixel center and apparent width, convert to angle and distance
+
+    example of a verdict:
+    {
+        "name": "ball_yellow",
+        "shape": "RECT",
+        "center_x": 136,
+        "center_y": 253,
+        "width": 47,
+        "height": 33,
+        "area": 1551
+        "known_width_in" : 2.7,
+    }
     '''
 
-    pixel_position = verdict["center"]
-    object_width = verdict["width"]
+    px_x = verdict["center_x"]
+    px_y = verdict["center_y"]
 
 
-def get_distance(seen_width, known_width):
+    obj_dis_in = calc_new_distance(
+        known= verdict["known_width_in"],
+        percieved= verdict["width"])
 
-    pass
+    ic(obj_dis_in)
+
+
+
+
+def calculate_focal_length():
+    # in this example, a tennis ball
+    # D = known diameter / length / height etc
+    # d = percieved diameter / etc
+    # Z = known distance to object
+    D = 2.7
+    d = 47
+    Z = 6*12
+
+    focal_length = (d*Z)/D
+    ic(focal_length)
+
+
+    return focal_length
+
+
+def calc_new_distance(known: float, percieved: float) -> float:
+    D = known
+    d = percieved
+    f = FOCAL_LENGTH
+    Z = (D*f) / d
+
+    return Z
+
+
+
+if __name__ == "__main__":
+
+    verd_path = r"0_vision\obj_lists\22_25_46.txt"
+
+    obj_list : list = load_dicts_from_txt(verd_path)
+
+    for obj in obj_list:
+        convert_to_top_down(obj)
+

@@ -3,7 +3,7 @@ from opencv_colors import *
 import numpy as np
 from pathlib import Path
 from typing import Optional
-from draw_field import draw_empty_field
+from draw_empty_field import draw_empty_field
 from convert_front_to_top_down import *
 
 RADIUS_ROBOT = int(14*PIXELS_PER_INCH/2)

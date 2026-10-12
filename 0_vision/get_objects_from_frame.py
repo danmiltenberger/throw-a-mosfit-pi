@@ -17,24 +17,28 @@ ball_red: dict = {
     "name" : "red_ball",
     "shape" : CIRCLE,
     "path_to_hsv" : "0_vision/hsv_bounds/ball_red.txt",
+    "known_width_in" : 7,
 }
 
 ball_yellow : dict = {
     "name" : "ball_yellow",
     "shape" : RECT,
     "path_to_hsv" : "0_vision/hsv_bounds/ball_yellow.txt",
+    "known_width_in" : 2.7,
 }
 
 hat_cyan : dict = {
     "name" : "hat_cyan",
     "shape" : RECT,
     "path_to_hsv" : "0_vision/hsv_bounds/hat_cyan.txt",
+    "known_width_in" : 8,     # FIXME
 }
 
 hat_yellow : dict = {
     "name" : "hat_yellow",
     "shape" : RECT,
     "path_to_hsv" : "0_vision/hsv_bounds/hat_yellow.txt", 
+    "known_width_in" : 8,     # FIXME
 }
 
 search_for_list = [
@@ -238,26 +242,6 @@ def save_dicts_to_json_txt(data_list, filename=""):
         print(f"❌ Error saving file: {e}")
 
 
-def load_dicts_from_txt(filename="output.txt"):
-    """
-    Loads a text file formatted in JSON and returns it as a list of dictionaries.
-    """
-    try:
-        with open(filename, "r", encoding="utf-8") as file:
-            data_list = json.load(file)
-        print(f"Successfully loaded data from {filename}")
-        return data_list
-    except FileNotFoundError:
-        print(f"❌ Error: The file '{filename}' does not exist.")
-        return []
-    except json.JSONDecodeError:
-        print(f"❌ Error: The file '{filename}' is not valid JSON text.")
-        return []
-    except Exception as e:
-        print(f"❌ Error loading file: {e}")
-        return []
-
-
 def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) -> list:
 
     obj_list = []
@@ -293,6 +277,7 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
         verdict = {}
         verdict["name"] = obj_name
         verdict["shape"] = object_dict["shape"]
+        verdict["known_width_in"] = object_dict["known_width_in"]
 
         if object_dict["shape"] == CIRCLE:
             (x,y), radius = cv2.minEnclosingCircle(best_contour)
@@ -300,6 +285,7 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
             verdict["center_y"] = y
             verdict["radius"] = radius
             verdict["width"] = radius * 2
+            verdict["area"] = np.pi * radius * radius
 
         elif object_dict["shape"] == RECT:
             x, y, width, height = cv2.boundingRect(best_contour)
@@ -307,6 +293,7 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
             verdict["center_y"] = y
             verdict["width"] = width
             verdict["height"] = height
+            verdict["area"] = width * height
 
         obj_list.append(verdict)
 
@@ -321,11 +308,21 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
     WHITE = (255,255,255)
     THICKNESS = 1
 
+    write_list = []
+
     for object_dict in obj_list:
         object_dict : dict
+        name = object_dict["name"]
 
         center_x = int(object_dict["center_x"])
         center_y = int(object_dict["center_y"])
+        width = int(object_dict["width"])
+
+        label = f'{name} area: {object_dict["area"]}, width_px: {width}'
+
+        write_list.append(label)
+
+
         shape_center = (center_x, center_y)
 
         if object_dict["shape"] == CIRCLE:
@@ -339,7 +336,7 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
             )
 
         elif object_dict["shape"] == RECT:
-            width = int(object_dict["width"])
+            
             height = int(object_dict["height"])
 
 
@@ -351,8 +348,68 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list):
                 thickness=THICKNESS
             )
 
+    frame = draw_list_on_frame(frame, write_list)
 
 
+    return frame
+
+
+def draw_list_on_frame(
+    frame: np.ndarray,
+    items: list,
+    position: tuple = (10, 10),
+    color: tuple = (255, 255, 255),
+    font_scale: float = 0.6,
+    thickness: int = 1,
+    line_gap: int = 6,
+    font: int = cv2.FONT_HERSHEY_SIMPLEX,
+) -> np.ndarray:
+    """Draw list items on separate lines near the top-left of a frame.
+
+    position: (x, y) of the text block's top-left corner, in pixels.
+    line_gap: Extra vertical spacing between lines.
+
+    Modifies frame in place and returns it.
+    Lines that do not fit vertically are omitted.
+    """
+    if font_scale <= 0 or thickness <= 0:
+        raise ValueError("Font scale and thickness must be positive.")
+    if line_gap < 0:
+        raise ValueError("Line gap must be nonnegative.")
+
+    if not items:
+        return frame
+
+    texts = [str(item) for item in items]
+    x, top = map(int, position)
+
+    # Use uniform spacing based on the tallest text in the list.
+    sizes = [
+        cv2.getTextSize(text or "Ag", font, font_scale, thickness)
+        for text in texts
+    ]
+    text_height = max(size[0][1] for size in sizes)
+    baseline = max(size[1] for size in sizes) + thickness
+    line_height = text_height + baseline + line_gap
+
+    text_y = top + text_height
+
+    for text in texts:
+        if text_y + baseline >= frame.shape[0]:
+            break
+
+        cv2.putText(
+            frame,
+            text,
+            (x, text_y),
+            font,
+            font_scale,
+            color,
+            thickness,
+            lineType=cv2.LINE_AA,
+        )
+
+        text_y += line_height
 
     return frame
 
