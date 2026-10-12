@@ -189,7 +189,8 @@ total_window_px_x = convert_to_px(total_window_in_x)
 total_window_px_y = convert_to_px(total_window_in_y)
 
 
-def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = False) -> np.ndarray:
+
+def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = False, just_black: bool = False) -> np.ndarray:
 
     frame : np.ndarray = np.zeros((total_window_px_y, total_window_px_x, 3), dtype=np.uint8)
 
@@ -236,6 +237,11 @@ def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = Fal
 
     # BEGIN DRAWING TO SCREEN
     draw_centered_rectangle(frame, background, BLACK)
+
+    if just_black:
+        cv2.imwrite('black_field.png', frame)
+        return frame
+
     draw_centered_octagon(
         frame, 
         white_perimiter, 
@@ -313,7 +319,7 @@ def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = Fal
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    cv2.imwrite('1_analysis/empty_field.png', frame)
+    cv2.imwrite('empty_field.png', frame)
     return frame
 
     
@@ -321,3 +327,4 @@ def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = Fal
 
 if __name__ == "__main__":
     draw_empty_field()
+    draw_empty_field(just_black=True)

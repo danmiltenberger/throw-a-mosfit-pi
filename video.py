@@ -3,7 +3,7 @@ import time
 
 import cv2
 from picamera2 import Picamera2
-from main import get_or_create_directory
+from main import get_or_create_directory, SCREEN_PX_X, SCREEN_PX_Y
 from get_objects_from_frame import get_current_time
 
 def capture_with_countdown(
@@ -77,7 +77,7 @@ fps = 30.0
 picam = Picamera2()
 
 config = picam.create_video_configuration(
-    main={"size": (640, 480), "format": "RGB888"},
+    main={"size": (SCREEN_PX_X, SCREEN_PX_Y), "format": "RGB888"},
     controls={"FrameRate": fps},
 )
 picam.configure(config)

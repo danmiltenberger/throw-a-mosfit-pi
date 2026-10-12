@@ -5,6 +5,7 @@ from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y, get_object_list_fro
 import numpy as np
 import sys
 from pathlib import Path
+from display import show_frames_side_by_side
 
 
 def main():
@@ -17,6 +18,10 @@ def main():
         main={'format': 'RGB888', 'size': (SCREEN_PX_X, SCREEN_PX_Y)}
     )
     picam2.configure(config)
+
+
+    frame_black_field = cv2.imread("black_field.png")
+    frame_empty_field = cv2.imread("empty_field.png")
     
     try:
         picam2.start()
@@ -27,22 +32,25 @@ def main():
         
         while True:
             # capture_array() returns a NumPy array directly
-            frame = picam2.capture_array()
+            frame_camera = picam2.capture_array()
             
-            if frame is None:
+            if frame_camera is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            cv2.imshow('frame', frame)
-            frame_unchanged = frame.copy()
+            frame_unchanged = frame_camera.copy()
 
-            obj_list : list = get_object_list_from_frame(frame, save_as_file=True)
+            
+
+            obj_list : list = get_object_list_from_frame(frame_camera, save_as_file=False)
             frame_annotated : np.ndarray = draw_object_list_to_frame(
                 frame_unchanged, 
                 obj_list, 
                 draw_arrows=True)
 
+            frame_field = frame_empty_field
+            combined_frame = show_frames_side_by_side(frame_annotated, frame_field)
 
-            cv2.imshow('annotated_frame', frame_annotated)
+            cv2.imshow('frame and field', combined_frame)
 
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
