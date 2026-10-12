@@ -9,12 +9,9 @@ except ImportError:  # pragma: no cover - only used when the Pi camera library i
     Picamera2 = None  # type: ignore[assignment]
 
 from vision_library import save_cv2_frame_as_png
+from main import get_or_create_directory
+from get_objects_from_frame import get_current_time
 
-
-def get_iso_string_name():
-    now = datetime.now()
-    iso_string = now.isoformat()
-    return iso_string
 
 def take_photo():
     # Initialize the PiCamera2 object
@@ -45,7 +42,13 @@ def take_photo():
 
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                save_cv2_frame_as_png(frame, "training_photos/" + get_iso_string_name() + ".png")
+
+                
+                directory = str(get_or_create_directory("training_photos"))
+                file_name = get_current_time()
+                output_path = f"{directory}/{file_name}.png"
+
+                save_cv2_frame_as_png(frame, output_path)
                 return frame
 
                 

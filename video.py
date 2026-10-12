@@ -87,13 +87,13 @@ try:
 
     # Capture for 30 seconds and save an MP4.
     directory = str(get_or_create_directory("training_videos"))
-
-    file_name = get_current_time
+    file_name = get_current_time()
+    output_path = f"{directory}/{file_name}.mp4"
 
     capture_with_countdown(
         picam,
         duration_seconds=30,
-        output_path= f"{directory}/{file_name}.mp4",
+        output_path= output_path,
         fps=fps,
     )
 
