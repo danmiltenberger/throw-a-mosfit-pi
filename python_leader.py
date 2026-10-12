@@ -1,7 +1,7 @@
 from smbus3 import SMBus, i2c_msg
 
 
-def send_text_i2c(bus_number: int, arduino_address: int, text: str,
+def send_text_i2c(bus_number: int =1, arduino_address: int = 0x08, text: str = "",
                   encoding: str = "utf-8") -> None:
     """
     Send a text string to an Arduino configured as an I2C slave.

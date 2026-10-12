@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from display import show_frames_side_by_side, get_side_and_top_down
 from convert_front_to_top_down import draw_object_list_to_field
+from python_leader import send_text_i2c
 
 
 def main():
@@ -39,6 +40,12 @@ def main():
 
             combined_frame, object_list = get_side_and_top_down(frame_camera, frame_black_field)
             cv2.imshow('frame and field', combined_frame)
+
+            for obj in object_list:
+                name = obj["name"]
+
+                send_text_i2c(name)
+            
 
             # Break loop on 'q' key press
             if cv2.waitKey(1) & 0xFF == ord('q'):
