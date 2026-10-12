@@ -47,9 +47,9 @@ hat_yellow : dict = {
 }
 
 search_for_list = [
-    ball_red,
+    #ball_red,
     ball_yellow,
-    hat_cyan,
+    #hat_cyan,
     #hat_yellow,
 ]
 
