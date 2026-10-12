@@ -26,7 +26,7 @@ def read_video_frames(video_path: str) -> Iterator[np.ndarray]:
 
 
 if __name__ == "__main__":
-    vid_path = 'training_videos/tennis_ball_blank_wall.mp4'
+    vid_path = 'training_videos/tennis_ball_with_corners.mp4'
 
     frame_black_field = cv2.imread("black_field.png")
     frame_empty_field = cv2.imread("empty_field.png")

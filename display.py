@@ -64,8 +64,9 @@ def get_side_and_top_down(frame_camera: np.ndarray, frame_field: np.ndarray):
     field_annotated : np.ndarray = draw_object_list_to_field(
         at_goalbox_center=True,
         field_frame= field_unchanged,
-        object_list= obj_list
-    )
+        object_list= obj_list,
+        draw_arrows = False)
+
     combined_frame = show_frames_side_by_side(frame_annotated, field_annotated)
 
     return combined_frame, obj_list

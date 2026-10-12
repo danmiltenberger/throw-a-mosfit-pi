@@ -15,6 +15,8 @@ import json
 import math
 from typing import Optional
 from pathlib import Path
+from get_objects_from_frame import draw_labeled_arrow
+from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y
 
 
 
@@ -429,7 +431,11 @@ def draw_circle_with_arrow(
     radius = int(radius)
 
     if radius <= 0 or arrow_length <= 0 or thickness < 1:
-        raise ValueError("radius, arrow_length, and thickness must be positive")
+        radius = 1
+        arrow_length = 1
+        thickness = 1
+        # FIXME handle this more elegantly
+        #raise ValueError("radius, arrow_length, and thickness must be positive")
 
     center = (int(round(point[0])), int(round(point[1])))
 
@@ -454,8 +460,61 @@ def draw_circle_with_arrow(
     return frame
 
 
+def draw_arrows_from_object_to_robot(frame, robot: dict, obj: dict):
 
-def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goalbox_center: bool = True) -> np.ndarray:
+    shape_center = obj["center_px"]
+    shape_center_x, shape_center_y = shape_center
+    robot_center = robot["center_px"]
+
+    # draw an arrow from the center of the object to the center of the frame
+    screen_center_x = int(SCREEN_PX_X / 2)
+    screen_center_y = int(SCREEN_PX_Y / 2)
+
+
+    delta_x_px = abs(screen_center_x-shape_center_x)
+    delta_y_px = abs(screen_center_y-shape_center_y)
+
+    arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px,2))
+    arrow_length = round(arrow_length)
+
+    # draw to center
+    frame = draw_labeled_arrow(
+        frame= frame,
+        color= BLACK,
+        point1=shape_center,
+        point2= robot_center,
+        label=f"px: {arrow_length}"
+    )
+    
+    # draw along x axis
+    frame = draw_labeled_arrow(
+        frame= frame,
+        color= BLUE,
+        point1=(shape_center_x, shape_center_y),
+        point2= (screen_center_x, shape_center_y),
+        label=f"px: {delta_x_px}"
+    )
+
+    # draw along y axis
+    frame = draw_labeled_arrow(
+        frame= frame,
+        color= RED,
+        point1=(screen_center_x, shape_center_y),
+        point2= (screen_center_x, screen_center_y),
+        label=f"px: {delta_y_px}"
+    )
+
+    # draw vertical arrow showing screen center
+    frame = cv2.line(
+        frame,
+        pt1=(screen_center_x, 0),
+        pt2=(screen_center_x, SCREEN_PX_Y),
+        color=WHITE,
+    )
+
+
+
+def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goalbox_center: bool = True, draw_arrows: bool = False) -> np.ndarray:
 
     robot = {}
 
@@ -486,7 +545,6 @@ def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goa
     for obj in object_list:
         ojb = convert_to_top_down(obj, robot)
 
-
         # draw object
         field_frame = draw_circle_with_arrow(
             angle= ojb["theta_rad"],
@@ -495,6 +553,9 @@ def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goa
             point= ojb["center_px"],
             radius= obj["radius"]
         )
+
+        if draw_arrows:
+            draw_arrows_from_object_to_robot(frame= field_frame, robot= robot, obj= obj)
 
     return field_frame
 

@@ -1,8 +1,7 @@
 from picamera2 import Picamera2 # type: ignore
 import time
 import cv2
-from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y, get_object_list_from_frame, draw_object_list_to_frame
-import numpy as np
+from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y
 import sys
 from pathlib import Path
 from display import show_frames_side_by_side, get_side_and_top_down

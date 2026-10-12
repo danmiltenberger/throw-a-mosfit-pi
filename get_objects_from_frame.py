@@ -84,15 +84,26 @@ def calc_distance(known: float, percieved: float) -> float:
 
     return Z
 
+def calc_angle(
+    pixel_x: float,
+    focal_length_x: float = FOCAL_LENGTH,
+    center_x: float = SCREEN_PX_X/2,
+) -> float:
+    """Return the horizontal angle from straight ahead, in radians.
 
-def calc_angle(center_px_x, screen_px_x)-> float:
-    pixels_per_degree = 27.64
-    degrees_per_pixel = 1/ pixels_per_degree
+    Args:
+        pixel_x: Object's horizontal coordinate in the image.
+        focal_length_x: Camera's horizontal focal length in pixels.
+        center_x: Camera's horizontal principal point in pixels.
 
-    delta_x_px = screen_px_x - center_px_x
-    degrees = delta_x_px * degrees_per_pixel
+    Returns:
+        Signed angle: negative to the left, positive to the right.
+    """
+    if focal_length_x <= 0:
+        raise ValueError("focal_length_x must be positive.")
 
-    return degrees
+    return math.atan2(pixel_x - center_x, focal_length_x) * -1
+  
 
 
 def get_current_time() -> str:
@@ -293,10 +304,10 @@ def create_label_line(verdict: dict) -> str:
 
     name = verdict["name"]
 
-    area_px = round(verdict["area"])
-    width_px = round(verdict["width"])
-    width_in = round(verdict["known_width_in"])
-    distance_in = round(verdict["distance_in"])
+    area_px = round(verdict["area"], 2)
+    width_px = round(verdict["width"], 2)
+    width_in = round(verdict["known_width_in"],2)
+    distance_in = round(verdict["distance_in"],2)
     angle_deg = round(math.degrees(verdict["theta_rad"]))
 
     label = f"{name} width_px {width_px}, width_in actual: {width_in}, distance_in: {distance_in}, deg {angle_deg}"
@@ -376,9 +387,7 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
         )
 
         # convert the horizontal pixel distance from center to angle
-        verdict["theta_rad"] = calc_angle(
-            center_px_x=verdict["center_x"],
-            screen_px_x= SCREEN_PX_X)
+        verdict["theta_rad"] = calc_angle(pixel_x=verdict["center_x"])
 
         verdict["label"] = create_label_line(verdict)
 
