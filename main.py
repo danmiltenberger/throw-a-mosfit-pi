@@ -39,6 +39,7 @@ def main():
                 raise ValueError('Received empty frame buffer from libcamera.')
 
             frame_unchanged = frame_camera.copy()
+            field_unchanged = frame_empty_field
 
             
 
@@ -50,7 +51,7 @@ def main():
 
             field_annotated : np.ndarray = draw_object_list_to_field(
                 at_goalbox_center=True,
-                field_frame= frame_empty_field,
+                field_frame= field_unchanged,
                 object_list= obj_list
             )
             combined_frame = show_frames_side_by_side(frame_annotated, field_annotated)
