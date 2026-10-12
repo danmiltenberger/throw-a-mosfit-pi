@@ -8,7 +8,7 @@ try:
 except ImportError:  # pragma: no cover - only used when the Pi camera library is unavailable.
     Picamera2 = None  # type: ignore[assignment]
 
-from opencv_stack import save_cv2_frame_as_png
+from vision_library import save_cv2_frame_as_png
 
 
 def get_iso_string_name():

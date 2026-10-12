@@ -1,5 +1,10 @@
 # OpenCV colors: (Blue, Green, Red)
 
+
+# okay not technically colors but useful for drawing to the field
+FILLED = -1
+PIXELS_PER_INCH = 5
+
 # Black, white, and grays
 BLACK       = (0, 0, 0)
 WHITE       = (255, 255, 255)

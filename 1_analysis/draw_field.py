@@ -5,13 +5,6 @@ import numpy as np
 from opencv_colors import *
 
 
-WHITE = (255, 255, 255)
-RED = (0, 0, 255)
-BLUE = (255, 0, 0)
-
-FILLED = -1
-
-PIXELS_PER_INCH = 5
 
 @dataclass
 class Rectangle:
@@ -172,30 +165,33 @@ def draw_centered_octagon(
 def convert_to_px(inches: int) -> int:
     return int(inches * PIXELS_PER_INCH)
 
-if __name__ == "__main__":
 
-    # Values in inches
-    playing_field_in_x = 8 * 12
-    playing_field_in_y = 12 * 12
 
-    goal_net_in_x = 48
-    goal_net_in_y = 12     # deep
+# Values in inches
+playing_field_in_x = 8 * 12
+playing_field_in_y = 12 * 12
 
-    goalbox_in_x = 48
-    goalbox_in_y = 24   # infront of the goal
+goal_net_in_x = 48
+goal_net_in_y = 12     # deep
 
-    perim_tape_thickness_in = 2
-    perim_black_beyond_tape_in = 2
-    total_buffer_in = perim_tape_thickness_in + perim_black_beyond_tape_in
+goalbox_in_x = 48
+goalbox_in_y = 24   # infront of the goal
 
-    total_window_in_y = 2*goal_net_in_y + playing_field_in_y
-    total_window_in_x = 2*total_buffer_in + playing_field_in_x
+perim_tape_thickness_in = 2
+perim_black_beyond_tape_in = 2
+total_buffer_in = perim_tape_thickness_in + perim_black_beyond_tape_in
 
-    # total window
-    total_window_px_x = convert_to_px(total_window_in_x)
-    total_window_px_y = convert_to_px(total_window_in_y)
+total_window_in_y = 2*goal_net_in_y + playing_field_in_y
+total_window_in_x = 2*total_buffer_in + playing_field_in_x
 
-    frame = np.zeros((total_window_px_y, total_window_px_x, 3), dtype=np.uint8)
+# total window
+total_window_px_x = convert_to_px(total_window_in_x)
+total_window_px_y = convert_to_px(total_window_in_y)
+
+
+def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = False) -> np.ndarray:
+
+    frame : np.ndarray = np.zeros((total_window_px_y, total_window_px_x, 3), dtype=np.uint8)
 
     # start with a background
     background = Rectangle(
@@ -272,7 +268,6 @@ if __name__ == "__main__":
         )
 
     # draw the goal boxes 
-    goalbox_px_y_half = int(goalbox_px_y /2)
     goalbox_offset = int(goal_net_offset - goal_net_px_y - goal_net_px_y_half)
     draw_vert_centered_rectangle(
         frame, 
@@ -288,11 +283,41 @@ if __name__ == "__main__":
         LIGHT_GRAY,
         )
 
+    if draw_centerpoints:
+        centerpoint = Rectangle(
+                width= 30,
+                height=30,
+            )
 
+        # draw a box right at the center of the field
+        draw_centered_rectangle(
+            frame,
+            centerpoint
+        )
 
-    #cv2.imshow("empty_field", frame)
+        # and then at the center of the light gray goalboxes
+        draw_vert_centered_rectangle(
+            frame, 
+            centerpoint, 
+            goalbox_offset,
+            )
+
+        draw_vert_centered_rectangle(
+            frame, 
+            centerpoint, 
+            -goalbox_offset,
+            )
+
+    if is_show_image:
+        cv2.imshow("empty_field", frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     cv2.imwrite('1_analysis/empty_field.png', frame)
+    return frame
 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    
+
+
+if __name__ == "__main__":
+    draw_empty_field()
