@@ -39,7 +39,7 @@ def main():
                 raise ValueError('Received empty frame buffer from libcamera.')
 
             frame_unchanged = frame_camera.copy()
-            field_unchanged = frame_empty_field
+            field_unchanged = frame_empty_field.copy()
 
             
 
