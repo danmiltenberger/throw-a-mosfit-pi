@@ -3,7 +3,8 @@ import time
 
 import cv2
 from picamera2 import Picamera2
-
+from main import get_or_create_directory
+from get_objects_from_frame import get_current_time
 
 def capture_with_countdown(
     picam: Picamera2,
@@ -85,10 +86,14 @@ try:
     picam.start()
 
     # Capture for 30 seconds and save an MP4.
+    directory = str(get_or_create_directory("training_videos"))
+
+    file_name = get_current_time
+
     capture_with_countdown(
         picam,
         duration_seconds=30,
-        output_path="capture.mp4",
+        output_path= f"{directory}/{file_name}.mp4",
         fps=fps,
     )
 
