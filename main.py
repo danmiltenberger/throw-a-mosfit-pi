@@ -4,6 +4,7 @@ import cv2
 from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y, get_object_list_from_frame, draw_object_list_to_frame
 import numpy as np
 import sys
+from pathlib import Path
 
 
 def main():
@@ -56,6 +57,30 @@ def main():
         print('Stopping camera and releasing resources...')
         picam2.stop()
         cv2.destroyAllWindows()
+
+
+
+
+def get_or_create_directory(directory: str | Path) -> Path:
+    """
+    Create a directory if needed and return its absolute path.
+
+    Missing parent directories are also created.
+    Existing directories and their contents are left unchanged.
+
+    Args:
+        directory: Directory path as a string or Path object.
+
+    Returns:
+        Absolute Path object for the directory.
+
+    Raises:
+        FileExistsError: If the target path exists as a file.
+        OSError: If creation fails, such as due to insufficient permissions.
+    """
+    path = Path(directory).expanduser().resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 if __name__ == '__main__':
     main()

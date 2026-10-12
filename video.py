@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 import os
 from get_objects_from_frame import get_current_time
+from main import get_or_create_directory
 
 import cv2
 
@@ -95,9 +96,8 @@ if __name__ == "__main__":
         file_name = get_current_time()
 
 
-    directory = "training_videos"
-    os.mkdir(directory)
-
+    directory = str(get_or_create_directory("training_videos"))
+    
     file_path = directory + "/" + file_name + ".mp4"
 
     preview_video(file_path)
