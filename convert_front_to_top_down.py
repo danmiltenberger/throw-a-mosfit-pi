@@ -474,7 +474,7 @@ def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goa
 
     
     # draw robot
-    frame = draw_circle_with_arrow(
+    field_frame = draw_circle_with_arrow(
         angle= robot["theta_rad"],
         color=robot["color"],
         frame= field_frame,
@@ -483,7 +483,7 @@ def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goa
     )
 
     # draw objects
-    for obj in obj_list:
+    for obj in object_list:
         ojb = convert_to_top_down(obj, robot)
 
 
