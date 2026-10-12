@@ -6,6 +6,7 @@ import csv
 from datetime import datetime
 from icecream import ic
 import json
+from opencv_colors import *
 
 
 kernel_size = 3
@@ -16,29 +17,33 @@ RECT = "RECT"
 ball_red: dict = {
     "name" : "red_ball",
     "shape" : CIRCLE,
-    "path_to_hsv" : "0_vision/hsv_bounds/ball_red.txt",
+    "path_to_hsv" : "hsv_bounds/ball_red.txt",
     "known_width_in" : 7,
+    "color" : RED,
 }
 
 ball_yellow : dict = {
     "name" : "ball_yellow",
     "shape" : RECT,
-    "path_to_hsv" : "0_vision/hsv_bounds/ball_yellow.txt",
+    "path_to_hsv" : "hsv_bounds/ball_yellow.txt",
     "known_width_in" : 2.7,
+    "color" : YELLOW,
 }
 
 hat_cyan : dict = {
     "name" : "hat_cyan",
     "shape" : RECT,
-    "path_to_hsv" : "0_vision/hsv_bounds/hat_cyan.txt",
+    "path_to_hsv" : "hsv_bounds/hat_cyan.txt",
     "known_width_in" : 8,     # FIXME
+    "color" : CYAN,
 }
 
 hat_yellow : dict = {
     "name" : "hat_yellow",
     "shape" : RECT,
-    "path_to_hsv" : "0_vision/hsv_bounds/hat_yellow.txt", 
+    "path_to_hsv" : "hsv_bounds/hat_yellow.txt", 
     "known_width_in" : 8,     # FIXME
+    "color" : YELLOW,
 }
 
 search_for_list = [
@@ -50,8 +55,8 @@ search_for_list = [
 
 
 def get_current_time() -> str:
-    """Return the current local time as HH:MM:SS."""
-    return datetime.now().strftime("%H_%M_%S")
+
+    return datetime.now().isoformat()
 
 
 def save_dict_of_dicts_csv(
@@ -231,7 +236,7 @@ def save_dicts_to_json_txt(data_list, filename=""):
     """
 
     if filename == "":
-        filename = "0_vision/obj_lists/" + get_current_time() + ".txt"
+        filename = "obj_lists/" + get_current_time() + ".txt"
 
     try:
         with open(filename, "w", encoding="utf-8") as file:
@@ -275,24 +280,34 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
 
         # if there IS a contour, we want to know how large it is and where it is
         verdict = {}
+
+
+        # copy over the useful stuff
         verdict["name"] = obj_name
         verdict["shape"] = object_dict["shape"]
         verdict["known_width_in"] = object_dict["known_width_in"]
+        verdict["color"] = object_dict["color"]
 
         if object_dict["shape"] == CIRCLE:
             (x,y), radius = cv2.minEnclosingCircle(best_contour)
             verdict["center_x"] = x
             verdict["center_y"] = y
+
             verdict["radius"] = radius
             verdict["width"] = radius * 2
+
             verdict["area"] = np.pi * radius * radius
 
         elif object_dict["shape"] == RECT:
             x, y, width, height = cv2.boundingRect(best_contour)
             verdict["center_x"] = x
             verdict["center_y"] = y
+
             verdict["width"] = width
             verdict["height"] = height
+
+            verdict["radius"] = int(width / 2)
+
             verdict["area"] = width * height
 
         obj_list.append(verdict)
@@ -415,7 +430,7 @@ def draw_list_on_frame(
 
 
 def main():
-    path = "training_vids_and_photos/tennis_6ft.png"
+    path = "training_photos/2026-10-11T20_53_56.553302.png"
     frame : np.ndarray = cv2.imread(path) # type: ignore
     frame_unchanged : np.ndarray = frame.copy()
 
