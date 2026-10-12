@@ -6,6 +6,7 @@ import numpy as np
 import sys
 from pathlib import Path
 from display import show_frames_side_by_side
+from convert_front_to_top_down import draw_object_list_to_field
 
 
 def main():
@@ -47,8 +48,12 @@ def main():
                 obj_list, 
                 draw_arrows=True)
 
-            frame_field = frame_empty_field
-            combined_frame = show_frames_side_by_side(frame_annotated, frame_field)
+            field_annotated : np.ndarray = draw_object_list_to_field(
+                at_goalbox_center=True,
+                field_frame= frame_empty_field,
+                object_list= obj_list
+            )
+            combined_frame = show_frames_side_by_side(frame_annotated, field_annotated)
 
             cv2.imshow('frame and field', combined_frame)
 

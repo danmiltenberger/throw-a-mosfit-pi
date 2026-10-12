@@ -455,6 +455,50 @@ def draw_circle_with_arrow(
 
 
 
+def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goalbox_center: bool = True) -> np.ndarray:
+
+    robot = {}
+
+
+    if at_goalbox_center:
+        robot_field_goal = {
+            "name" : "our_bot",
+            "center_in" : goalbox_center_bot_in, 
+            "center_px" : convert_in_point_to_screen((goalbox_center_bot_in)),
+            "radius" : RADIUS_ROBOT,
+            "color" : CYAN,
+            "theta_rad" : math.radians(90)      # up screen
+        }
+
+        robot = robot_field_goal
+
+    
+    # draw robot
+    frame = draw_circle_with_arrow(
+        angle= robot["theta_rad"],
+        color=robot["color"],
+        frame= field_frame,
+        point= robot["center_px"],
+        radius= robot["radius"]
+    )
+
+    # draw objects
+    for obj in obj_list:
+        ojb = convert_to_top_down(obj, robot)
+
+
+        # draw object
+        field_frame = draw_circle_with_arrow(
+            angle= ojb["theta_rad"],
+            color=ojb["color"],
+            frame= field_frame,
+            point= ojb["center_px"],
+            radius= obj["radius"]
+        )
+
+    return field_frame
+
+
 
 if __name__ == "__main__":
 
