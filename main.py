@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from display import show_frames_side_by_side, get_side_and_top_down
 from convert_front_to_top_down import draw_object_list_to_field
-from python_leader import send_text_i2c
+from communicate_python import send_text_i2c
 
 
 def main():
