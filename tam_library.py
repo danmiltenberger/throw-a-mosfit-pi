@@ -177,61 +177,33 @@ def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detecti
 
 
 
-    def convert_global_in_to_global_px(inch_point: Point) -> Point:
-        # the screen measures down and right from the top left,
-        # but we measure the field +up and +right from the center
-    
-        # an input of 0,0 should result in window_x/2, window_y /2
-    
+    def convert_pos_and_ang_to_robot_in() -> Detection:
 
-        px_x = convert_to_px(inch_point.x)
-        px_y = convert_to_px(inch_point.y)
-    
-        # left means center minus the input
-        rel_px_x = field_center_px_x + px_x
-    
-        # up means center MINUS input
-        rel_px_y = field_center_px_y - px_y
-    
-        global_pos_px = Point(rel_px_x, rel_px_y)
-        return global_pos_px
+        # get the detection's global position in inches
+        object_x = robot.position_in.x + this_detect.range * math.cos(this_detect.azimuth_rad + robot.azimuth_rad)
+
+        object_y = robot.position_in.y + this_detect.range * math.sin(this_detect.azimuth_rad + robot.azimuth_rad)
+        
+        this_detect.pos_global_in = Point(object_x, object_y)
+
+        return this_detect
 
     
     # get the range and azimuth from the robot
-    
-
-    this_detect.range = calc_distance(
-        known=known_width,
-        percieved=this_detect.width_px,
-    )
-
-    this_detect.azimuth_rad = calc_angle_rad_from_point(this_detect.center_px)
+    this_detect.range = calc_distance_from_bot()
+    this_detect.azimuth_rad = calc_angle_rad_from_point()
 
     # convert to the global position in inches
+    this_detect.pos_global_in = convert_pos_and_ang_to_robot_in()
 
-
-    this_detect.pos_global_px = convert_global_in_to_global_px(this_detect.pos_global_in)
-
-    return this_detect
-
-
-def convert_pos_and_ang_to_robot_in(this_detect: Detection, robot: OurRobot) -> Detection:
-
-    # get the detection's global position in inches
-    object_x = robot.position_in.x + this_detect.range * math.cos(this_detect.azimuth_rad + robot.azimuth_rad)
-
-    object_y = robot.position_in.y + this_detect.range * math.sin(this_detect.azimuth_rad + robot.azimuth_rad)
+    this_detect.pos_global_px = TODO!!!
     
-    this_detect.pos_global_in = Point(object_x, object_y)
-
-
 
     return this_detect
 
 
-def convert_in_pos_to_field_px(in_point = Point) -> Point:
 
-    pass
+
 
 
 def load_image(image_path: str) -> np.ndarray:
