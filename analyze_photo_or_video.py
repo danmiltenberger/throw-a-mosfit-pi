@@ -1,6 +1,6 @@
 import cv2
 from icecream import ic
-from tam_library import analyze_photo_or_video
+from tam_library import *
 import numpy as np
 
 from run_settings import USE_DRAWN_FIELD

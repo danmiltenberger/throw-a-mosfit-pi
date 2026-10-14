@@ -9,18 +9,20 @@ import ast
 import json
 from dataclasses import dataclass
 from typing import Iterator, Optional
+from tam_library_classes import Detection, Point, Rectangle, OurRobot
 
 
 from run_settings import (
     kernel_size,
     FOCAL_LENGTH,
-    SCREEN_PX_X,
-    SCREEN_PX_Y,
+    CAMERA_CAPTURE_X,
+    CAMERA_CAPTURE_Y,
     CIRCLE,
     RECT,
     search_for_list,
     PIXELS_PER_INCH,
     USE_DRAWN_FIELD,
+    KNOWN_WIDTH_IN
 )
 from tam_library_colors import *
 
@@ -38,9 +40,9 @@ RADIUS_ROBOT = int(14 * PIXELS_PER_INCH / 2)
 RADIUS_BALL = int(7 * PIXELS_PER_INCH / 2)
 RADIUS_TENNIS_BALL = int(2.7 * PIXELS_PER_INCH / 2)
 
-
-field_center_px_x = int(SCREEN_PX_X / 2)
-field_center_px_y = int(SCREEN_PX_Y / 2)
+# screen consts
+SCREEN_CENTER_X = int(CAMERA_CAPTURE_X /2)
+SCREEN_CENTER_Y = int(CAMERA_CAPTURE_Y /2)
 
 # goalbox center is 60 inches up / down from center field
 goalbox_center_top_in = (0, 60)
@@ -69,63 +71,167 @@ total_window_in_x = 2 * total_buffer_in + playing_field_in_x
 total_window_px_x = int(total_window_in_x * PIXELS_PER_INCH)
 total_window_px_y = int(total_window_in_y * PIXELS_PER_INCH)
 
-
-@dataclass
-class Point:
-    """A point in 2D space, in inches or pixels."""
-
-    x: float
-    y: float
-
-  
+field_center_px_x = int( total_window_px_x/ 2)
+field_center_px_y = int(total_window_px_y / 2)
 
 
-@dataclass
-class Bearing:
-    """distance in inches and angle in radians with respect to bot"""
 
-    dis_in: float
-    theta_rad: float
+def is_valid_contour(contour, area, obj_name: str = "") -> bool:
+    '''
+    TODO! check if the contour is valid based on area, circularity, etc
+    '''
 
-
-@dataclass
-class Detection:
-    """structure that explains what the vision system detected in the frame"""
-
-    # possibly later add goal post info
-
-    detected_soccer_ball: bool
-    detected_cyan_bot: bool
-    detected_yellow_bot: bool
-
-    # keep the original pixel position and width from the camera
-    px_center_soccer_ball: Point
-    px_center_cyan_bot: Point
-    px_center_yellow_bot: Point
-
-    px_width_soccer_ball: int
-    px_width_cyan_bot: int
-    px_width_yellow_bot: int
-
-    # also keep inches and distance (if we later improve the top down conversion)
-    bearing_soccer_ball: Bearing
-    bearing_cyan_bot: Bearing
-    bearing_yellow_bot: Bearing
-
-    # finally, and most usefully, convert the robot's bearing to a field position in inches, with the origin at the center of the field
-    in_global_soccer_ball: Point
-    in_global_cyan_bot: Point
-    in_global_yellow_bot: Point
+    return True
 
 
-@dataclass
-class Rectangle:
-    """Rectangle geometry following OpenCV's x, y, width, height convention."""
 
-    x: int = 0
-    y: int = 0
-    width: int = 200
-    height: int = 100
+
+def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
+    "from the input frame, search for the objects as specified in the run_settings.py search_list"
+    "this file DOES NOT convert the camera view to the global positions, just returns a list of what it sees in pixels"
+
+    detect_list = []
+
+    
+    for object_dict in search_for_list:
+
+        # load the necessary info from the reference list
+        path_to_hsv = object_dict["path_to_hsv"]
+        obj_name = object_dict["name"]
+        lower, upper = load_hsv_bounds(path_to_hsv)
+
+        # convert to hsv for processing
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        # create a mask using the hsv values
+        mask = cv2.inRange(hsv, lower, upper)
+
+        # get the contours from the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # if there is no contour, this object has not been detected, go to next object
+        if best_contour is None:
+            continue
+
+        # if there IS a contour, we want to know how large it is and where it is
+        best_contour, best_area = get_best_contour(contours, object_dict)
+
+        # if the contour is no good, skip it
+        if is_valid_contour(
+            contour= best_contour, 
+            obj_name=obj_name,
+            area= best_area) == False:
+            continue
+
+        # okay, so at this point we have decided that the contour is useful. Let's package and ship it!
+        this_detect = Detection()
+        this_detect.obj_name = object_dict["name"]
+
+        # analyze either as a circle or rectangle
+        if object_dict["shape"] == CIRCLE:
+            (x, y), radius = cv2.minEnclosingCircle(best_contour)
+            center_point = Point(x,y)
+            this_detect.object_center_px = center_point
+            this_detect.object_width_px = int(radius*2)
+
+            
+        elif object_dict["shape"] == RECT:
+            left_x, top_y, width, height = cv2.boundingRect(best_contour)
+
+            x_center = int(left_x + width/2)
+            y_center = int(top_y + height/2)
+            center_point = Point(x=x_center, y=y_center)
+            this_detect.object_center_px = center_point
+            this_detect.object_width_px = width
+
+        detect_list.append(this_detect)
+
+    return detect_list
+
+
+def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detection:
+
+    def calc_angle_rad_from_point(point: Point) -> float:
+        
+        """Return the horizontal angle from straight ahead, in radians.
+
+        Args:
+            pixel_x: Object's horizontal coordinate in the image.
+            focal_length_x: Camera's horizontal focal length in pixels.
+            center_x: Camera's horizontal principal point in pixels.
+
+        Returns:
+            Signed angle: negative to the left, positive to the right.
+        """
+        pixel_x = point.x
+        delta_x = pixel_x - SCREEN_CENTER_X
+
+        return math.atan2(delta_x, FOCAL_LENGTH) * -1
+
+    def calc_distance_from_bot():
+        known_width = search_for_list[this_detect.name][KNOWN_WIDTH_IN]
+        percieved_width = this_detect.width_px
+        Z = (known_width * FOCAL_LENGTH) / percieved_width
+
+        this_detect.range = Z
+
+
+
+    def convert_global_in_to_global_px(inch_point: Point) -> Point:
+        # the screen measures down and right from the top left,
+        # but we measure the field +up and +right from the center
+    
+        # an input of 0,0 should result in window_x/2, window_y /2
+    
+
+        px_x = convert_to_px(inch_point.x)
+        px_y = convert_to_px(inch_point.y)
+    
+        # left means center minus the input
+        rel_px_x = field_center_px_x + px_x
+    
+        # up means center MINUS input
+        rel_px_y = field_center_px_y - px_y
+    
+        global_pos_px = Point(rel_px_x, rel_px_y)
+        return global_pos_px
+
+    
+    # get the range and azimuth from the robot
+    
+
+    this_detect.range = calc_distance(
+        known=known_width,
+        percieved=this_detect.width_px,
+    )
+
+    this_detect.azimuth_rad = calc_angle_rad_from_point(this_detect.center_px)
+
+    # convert to the global position in inches
+
+
+    this_detect.pos_global_px = convert_global_in_to_global_px(this_detect.pos_global_in)
+
+    return this_detect
+
+
+def convert_pos_and_ang_to_robot_in(this_detect: Detection, robot: OurRobot) -> Detection:
+
+    # get the detection's global position in inches
+    object_x = robot.position_in.x + this_detect.range * math.cos(this_detect.azimuth_rad + robot.azimuth_rad)
+
+    object_y = robot.position_in.y + this_detect.range * math.sin(this_detect.azimuth_rad + robot.azimuth_rad)
+    
+    this_detect.pos_global_in = Point(object_x, object_y)
+
+
+
+    return this_detect
+
+
+def convert_in_pos_to_field_px(in_point = Point) -> Point:
+
+    pass
 
 
 def load_image(image_path: str) -> np.ndarray:
@@ -235,25 +341,7 @@ def calc_distance(known: float, percieved: float) -> float:
     return Z
 
 
-def calc_angle(
-    pixel_x: float,
-    focal_length_x: float = FOCAL_LENGTH,
-    center_x: float = SCREEN_PX_X / 2,
-) -> float:
-    """Return the horizontal angle from straight ahead, in radians.
 
-    Args:
-        pixel_x: Object's horizontal coordinate in the image.
-        focal_length_x: Camera's horizontal focal length in pixels.
-        center_x: Camera's horizontal principal point in pixels.
-
-    Returns:
-        Signed angle: negative to the left, positive to the right.
-    """
-    if focal_length_x <= 0:
-        raise ValueError("focal_length_x must be positive.")
-
-    return math.atan2(pixel_x - center_x, focal_length_x) * -1
 
 
 def get_current_time() -> str:
@@ -580,12 +668,10 @@ def draw_object_list_to_frame(
 
         if draw_arrows:
             # draw an arrow from the center of the object to the center of the frame
-            screen_center_x = int(SCREEN_PX_X / 2)
-            screen_center_y = int(SCREEN_PX_Y / 2)
-            screen_center = (screen_center_x, screen_center_y)
+            screen_center = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
 
-            delta_x_px = abs(screen_center_x - shape_center_x)
-            delta_y_px = abs(screen_center_y - shape_center_y)
+            delta_x_px = abs(SCREEN_CENTER_X - shape_center_x)
+            delta_y_px = abs(SCREEN_CENTER_Y - shape_center_y)
 
             arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px, 2))
             arrow_length = round(arrow_length)
@@ -603,8 +689,8 @@ def draw_object_list_to_frame(
             frame = draw_labeled_arrow(
                 frame=frame,
                 color=BLUE,
-                point1=(shape_center_x, shape_center_y),
-                point2=(screen_center_x, shape_center_y),
+                point1=(SCREEN_CENTER_X, shape_center_y),
+                point2=(SCREEN_CENTER_X, shape_center_y),
                 label=f"px: {delta_x_px}",
             )
 
@@ -620,8 +706,8 @@ def draw_object_list_to_frame(
             # draw vertical arrow showing screen center
             frame = cv2.line(
                 frame,
-                pt1=(screen_center_x, 0),
-                pt2=(screen_center_x, SCREEN_PX_Y),
+                pt1=(SCREEN_CENTER_X, 0),
+                pt2=(SCREEN_CENTER_X, SCREEN_CENTER_X),
                 color=WHITE,
             )
 
@@ -1523,11 +1609,8 @@ def draw_arrows_from_object_to_robot(frame, robot: dict, obj: dict):
     robot_center = robot["center_px"]
 
     # draw an arrow from the center of the object to the center of the frame
-    screen_center_x = int(SCREEN_PX_X / 2)
-    screen_center_y = int(SCREEN_PX_Y / 2)
-
-    delta_x_px = abs(screen_center_x - shape_center_x)
-    delta_y_px = abs(screen_center_y - shape_center_y)
+    delta_x_px = abs(SCREEN_CENTER_X - shape_center_x)
+    delta_y_px = abs(SCREEN_CENTER_Y - shape_center_y)
 
     arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px, 2))
     arrow_length = round(arrow_length)
@@ -1546,7 +1629,7 @@ def draw_arrows_from_object_to_robot(frame, robot: dict, obj: dict):
         frame=frame,
         color=BLUE,
         point1=(shape_center_x, shape_center_y),
-        point2=(screen_center_x, shape_center_y),
+        point2=(SCREEN_CENTER_X, shape_center_y),
         label=f"px: {delta_x_px}",
     )
 
@@ -1554,16 +1637,16 @@ def draw_arrows_from_object_to_robot(frame, robot: dict, obj: dict):
     frame = draw_labeled_arrow(
         frame=frame,
         color=RED,
-        point1=(screen_center_x, shape_center_y),
-        point2=(screen_center_x, screen_center_y),
+        point1=(SCREEN_CENTER_X, shape_center_y),
+        point2=(SCREEN_CENTER_X, SCREEN_CENTER_Y),
         label=f"px: {delta_y_px}",
     )
 
     # draw vertical arrow showing screen center
     frame = cv2.line(
         frame,
-        pt1=(screen_center_x, 0),
-        pt2=(screen_center_x, SCREEN_PX_Y),
+        pt1=(SCREEN_CENTER_X, 0),
+        pt2=(SCREEN_CENTER_X, SCREEN_CENTER_Y),
         color=WHITE,
     )
 
@@ -1648,9 +1731,9 @@ def get_frame_and_field(frame: np.ndarray) -> np.ndarray:
         frame_field,
     )
 
-    ic(object_list)
 
-    return combined_frame
+
+    return combined_frame, object_list
 
 
 def analyze_photo_or_video(file_path: str) -> None:
@@ -1658,10 +1741,15 @@ def analyze_photo_or_video(file_path: str) -> None:
         frames = read_video_frames(file_path)
     elif file_path.endswith(".png") or file_path.endswith(".jpg"):
         frame = load_image(file_path)
-        combined_frame = get_frame_and_field(frame)
+        combined_frame, object_list = get_frame_and_field(frame)
         cv2.imshow("frame and field", combined_frame)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+
+
+
+
         return
     else:
         raise ValueError(
@@ -1681,3 +1769,4 @@ def analyze_photo_or_video(file_path: str) -> None:
     finally:
         frames.close()
         cv2.destroyAllWindows()
+
