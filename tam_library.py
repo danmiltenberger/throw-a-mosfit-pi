@@ -30,6 +30,7 @@ from tam_library_colors import *
 HSV_BOUNDS = "hsv_bounds"
 FIELD_PNGS = "field_pngs"
 TRAINING_DATA = "training_data"
+TRAINING_DATA_CSVS = "training_data_csvs"
 
 # object consts
 RADIUS_ROBOT = int(14 * PIXELS_PER_INCH / 2)
