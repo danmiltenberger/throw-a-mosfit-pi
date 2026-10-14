@@ -1,20 +1,82 @@
 from pathlib import Path
-import cv2                  # pip install opencv-python
-from icecream import ic     # pip install icecream
+import cv2  # pip install opencv-python
+from icecream import ic  # pip install icecream
 import math
-import numpy as np          # pip install numpy
+import numpy as np  # pip install numpy
 from datetime import datetime
 import csv
 import ast
 import json
 from dataclasses import dataclass
-from typing import Optional
+from typing import Iterator, Optional
 
 
-from run_settings import kernel_size, FOCAL_LENGTH, SCREEN_PX_X, SCREEN_PX_Y, CIRCLE, RECT, search_for_list, PIXELS_PER_INCH
+from run_settings import (
+    kernel_size,
+    FOCAL_LENGTH,
+    SCREEN_PX_X,
+    SCREEN_PX_Y,
+    CIRCLE,
+    RECT,
+    search_for_list,
+    PIXELS_PER_INCH,
+)
 from tam_library_colors import *
 
 # NOTE - collapse all with ctrl+K, ctrl+0
+
+
+# folder consts
+HSV_BOUNDS = "hsv_bounds"
+FIELD_PNGS = "field_pngs"
+TRAINING_DATA = "training_data"
+
+# object consts
+RADIUS_ROBOT = int(14 * PIXELS_PER_INCH / 2)
+RADIUS_BALL = int(7 * PIXELS_PER_INCH / 2)
+RADIUS_TENNIS_BALL = int(2.7 * PIXELS_PER_INCH / 2)
+
+
+
+field_center_px_x = int(SCREEN_PX_X / 2)
+field_center_px_y = int(SCREEN_PX_Y / 2)
+
+# goalbox center is 60 inches up / down from center field
+goalbox_center_top_in = (0, 60)
+goalbox_center_bot_in = (0, -60)
+
+# field consts
+# in = inches
+# px = pixels
+playing_field_in_x = 8 * 12
+playing_field_in_y = 12 * 12
+
+goal_net_in_x = 48
+goal_net_in_y = 12  # deep
+
+goalbox_in_x = 48
+goalbox_in_y = 24  # infront of the goal
+
+perim_tape_thickness_in = 2
+perim_black_beyond_tape_in = 2
+total_buffer_in = perim_tape_thickness_in + perim_black_beyond_tape_in
+
+total_window_in_y = 2 * goal_net_in_y + playing_field_in_y
+total_window_in_x = 2 * total_buffer_in + playing_field_in_x
+
+# total window
+total_window_px_x = int(total_window_in_x * PIXELS_PER_INCH)
+total_window_px_y = int(total_window_in_y * PIXELS_PER_INCH)
+
+
+def load_image(image_path: str) -> np.ndarray:
+    """Load an image as a BGR NumPy array, or raise an error."""
+    frame = cv2.imread(image_path, cv2.IMREAD_COLOR)
+
+    if not isinstance(frame, np.ndarray) or frame.size == 0:
+        raise ValueError(f"Could not load image: {image_path}")
+
+    return frame
 
 
 def select_png(directory):
@@ -33,8 +95,7 @@ def select_png(directory):
 
     # Only include regular files ending in .png (case-insensitive)
     png_files = sorted(
-        p for p in dir_path.iterdir()
-        if p.is_file() and p.suffix.lower() == ".png"
+        p for p in dir_path.iterdir() if p.is_file() and p.suffix.lower() == ".png"
     )
 
     if not png_files:
@@ -65,7 +126,7 @@ def pick_from_list(input_list: list, info_str: str = ""):
     index = 0
     for item in input_list:
         print(f"{index}: {item}")
-        index +=1
+        index += 1
 
     user_choice = input("select a number from above list: ")
     user_choice = int(user_choice)
@@ -91,7 +152,6 @@ def load_cv2_frame_from_png(input_path: str):
     return frame
 
 
-
 def calculate_focal_length():
     # in this example, a tennis ball
     # D = known diameter / length / height etc
@@ -99,11 +159,10 @@ def calculate_focal_length():
     # Z = known distance to object
     D = 2.7
     d = 47
-    Z = 6*12
+    Z = 6 * 12
 
-    focal_length = (d*Z)/D
+    focal_length = (d * Z) / D
     ic(focal_length)
-
 
     return focal_length
 
@@ -112,14 +171,15 @@ def calc_distance(known: float, percieved: float) -> float:
     D = known
     d = percieved
     f = FOCAL_LENGTH
-    Z = (D*f) / d
+    Z = (D * f) / d
 
     return Z
+
 
 def calc_angle(
     pixel_x: float,
     focal_length_x: float = FOCAL_LENGTH,
-    center_x: float = SCREEN_PX_X/2,
+    center_x: float = SCREEN_PX_X / 2,
 ) -> float:
     """Return the horizontal angle from straight ahead, in radians.
 
@@ -135,7 +195,6 @@ def calc_angle(
         raise ValueError("focal_length_x must be positive.")
 
     return math.atan2(pixel_x - center_x, focal_length_x) * -1
-  
 
 
 def get_current_time() -> str:
@@ -159,13 +218,7 @@ def save_dict_of_dicts_csv(
         raise TypeError("Each value in data must be a dictionary.")
 
     # Collect all inner keys, preserving first-seen order.
-    columns = list(
-        dict.fromkeys(
-            column
-            for row in data.values()
-            for column in row
-        )
-    )
+    columns = list(dict.fromkeys(column for row in data.values() for column in row))
 
     if key_column in columns:
         raise ValueError(
@@ -243,7 +296,6 @@ def get_mask(hsv, object_dict: dict):
     else:
         raise ValueError("object does not have attribute lower and/or upper")
 
-
     mask = cv2.inRange(hsv, lower, upper)
 
     # if two hsv brackets, include it in the mask
@@ -260,10 +312,7 @@ def get_mask(hsv, object_dict: dict):
 def get_clean_mask(mask: np.ndarray):
     clean_mask = mask.copy()
 
-    kernel = (
-        cv2.getStructuringElement(
-            cv2.MORPH_ELLIPSE, (kernel_size, kernel_size)
-        ))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
 
     # Opening removes small specks; closing fills small gaps.
     if kernel_size > 1:
@@ -275,10 +324,10 @@ def get_clean_mask(mask: np.ndarray):
 
 def get_best_contour(contours, object_dict: dict):
 
-    check_min_area : bool = False
+    check_min_area: bool = False
     check_min_circularity: bool = False
-    min_area : int = 0
-    min_circularity : int = 0
+    min_area: int = 0
+    min_circularity: int = 0
 
     if "min_area" in object_dict.keys():
         min_area = object_dict["min_area"]
@@ -287,7 +336,7 @@ def get_best_contour(contours, object_dict: dict):
     if "min_circularity" in object_dict.keys():
         min_area = object_dict["min_circularity"]
         min_circularity = True
-    
+
     best_contour = None
     best_area = -1.0
 
@@ -338,8 +387,8 @@ def create_label_line(verdict: dict) -> str:
 
     area_px = round(verdict["area"], 2)
     width_px = round(verdict["width"], 2)
-    width_in = round(verdict["known_width_in"],2)
-    distance_in = round(verdict["distance_in"],2)
+    width_in = round(verdict["known_width_in"], 2)
+    distance_in = round(verdict["distance_in"], 2)
     angle_deg = round(math.degrees(verdict["theta_rad"]))
 
     label = f"{name} width_px {width_px}, width_in actual: {width_in}, distance_in: {distance_in}, deg {angle_deg}"
@@ -352,11 +401,10 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
     obj_list = []
 
     for object_dict in search_for_list:
-        object_dict : dict
+        object_dict: dict
         path_to_hsv = object_dict["path_to_hsv"]
         obj_name = object_dict["name"]
         lower, upper = load_hsv_bounds(path_to_hsv)
-        
 
         # convert to hsv for processing
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -365,14 +413,11 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
         mask = cv2.inRange(hsv, lower, upper)
 
         # get the contours from the mask
-        contours, _ = cv2.findContours(
-            mask, 
-            cv2.RETR_EXTERNAL, 
-            cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # evaluate the best contour
         best_contour, best_area = get_best_contour(contours, object_dict)
-        
+
         # if there is no contour, the object has not been detected
         # so just go to the next object
         if best_contour is None:
@@ -381,17 +426,16 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
         # if there IS a contour, we want to know how large it is and where it is
         verdict = {}
 
-
         # copy over the useful stuff
         verdict["name"] = obj_name
         verdict["shape"] = object_dict["shape"]
-        
+
         verdict["color"] = object_dict["color"]
         verdict["known_width_in"] = object_dict["known_width_in"]
 
         # analyze either as a circle or rectangle
         if object_dict["shape"] == CIRCLE:
-            (x,y), radius = cv2.minEnclosingCircle(best_contour)
+            (x, y), radius = cv2.minEnclosingCircle(best_contour)
             verdict["center_x"] = x
             verdict["center_y"] = y
 
@@ -412,10 +456,10 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
 
             verdict["area"] = width * height
 
-        # convert from pixel width to inches 
+        # convert from pixel width to inches
         verdict["distance_in"] = calc_distance(
-            known= object_dict["known_width_in"],
-            percieved= verdict["width"],
+            known=object_dict["known_width_in"],
+            percieved=verdict["width"],
         )
 
         # convert the horizontal pixel distance from center to angle
@@ -428,19 +472,19 @@ def get_object_list_from_frame(frame: np.ndarray, save_as_file: bool = False) ->
     if save_as_file:
         save_dicts_to_json_txt(obj_list)
 
-
     return obj_list
 
 
-def draw_object_list_to_frame(frame: np.ndarray, obj_list: list, draw_arrows: bool = False):
-    WHITE = (255,255,255)
+def draw_object_list_to_frame(
+    frame: np.ndarray, obj_list: list, draw_arrows: bool = False
+):
+    WHITE = (255, 255, 255)
     THICKNESS = 1
 
     write_list = []
 
     for object_dict in obj_list:
-        object_dict : dict
-
+        object_dict: dict
 
         shape_center_x = int(object_dict["center_x"])
         shape_center_y = int(object_dict["center_y"])
@@ -451,30 +495,28 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list, draw_arrows: bo
 
         write_list.append(label)
 
-
         shape_center = (shape_center_x, shape_center_y)
 
         if object_dict["shape"] == CIRCLE:
             radius = object_dict["radius"]
             frame = cv2.circle(
-                img= frame,
+                img=frame,
                 radius=int(radius),
                 center=shape_center,
-                color= color,
-                thickness=THICKNESS
+                color=color,
+                thickness=THICKNESS,
             )
 
         elif object_dict["shape"] == RECT:
-            
-            height = int(object_dict["height"])
 
+            height = int(object_dict["height"])
 
             frame = cv2.rectangle(
                 img=frame,
                 pt1=shape_center,
                 pt2=(shape_center_x + width, shape_center_y + height),
                 color=color,
-                thickness=THICKNESS
+                thickness=THICKNESS,
             )
 
         if draw_arrows:
@@ -483,11 +525,10 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list, draw_arrows: bo
             screen_center_y = int(SCREEN_PX_Y / 2)
             screen_center = (screen_center_x, screen_center_y)
 
+            delta_x_px = abs(screen_center_x - shape_center_x)
+            delta_y_px = abs(screen_center_y - shape_center_y)
 
-            delta_x_px = abs(screen_center_x-shape_center_x)
-            delta_y_px = abs(screen_center_y-shape_center_y)
-
-            arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px,2))
+            arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px, 2))
             arrow_length = round(arrow_length)
 
             # # draw to center
@@ -501,11 +542,11 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list, draw_arrows: bo
 
             # draw along x axis
             frame = draw_labeled_arrow(
-                frame= frame,
-                color= BLUE,
+                frame=frame,
+                color=BLUE,
                 point1=(shape_center_x, shape_center_y),
-                point2= (screen_center_x, shape_center_y),
-                label=f"px: {delta_x_px}"
+                point2=(screen_center_x, shape_center_y),
+                label=f"px: {delta_x_px}",
             )
 
             # # draw along y axis
@@ -525,11 +566,7 @@ def draw_object_list_to_frame(frame: np.ndarray, obj_list: list, draw_arrows: bo
                 color=WHITE,
             )
 
-
-        
-
     frame = draw_list_on_frame(frame, write_list)
-
 
     return frame
 
@@ -565,8 +602,7 @@ def draw_list_on_frame(
 
     # Use uniform spacing based on the tallest text in the list.
     sizes = [
-        cv2.getTextSize(text or "Ag", font, font_scale, thickness)
-        for text in texts
+        cv2.getTextSize(text or "Ag", font, font_scale, thickness) for text in texts
     ]
     text_height = max(size[0][1] for size in sizes)
     baseline = max(size[1] for size in sizes) + thickness
@@ -632,7 +668,10 @@ def draw_labeled_arrow(
     p2 = tuple(int(round(v)) for v in point2)
 
     cv2.arrowedLine(
-        frame, p1, p2, color,
+        frame,
+        p1,
+        p2,
+        color,
         thickness=thickness,
         line_type=cv2.LINE_AA,
         tipLength=tip_length,
@@ -654,7 +693,12 @@ def draw_labeled_arrow(
     )
 
     cv2.putText(
-        frame, text, text_origin, font, font_scale, color,
+        frame,
+        text,
+        text_origin,
+        font,
+        font_scale,
+        color,
         thickness=text_thickness,
         lineType=cv2.LINE_AA,
     )
@@ -662,10 +706,10 @@ def draw_labeled_arrow(
     return frame
 
 
-
 @dataclass
 class Rectangle:
     """Rectangle geometry following OpenCV's x, y, width, height convention."""
+
     x: int = 0
     y: int = 0
     width: int = 200
@@ -819,173 +863,126 @@ def draw_centered_octagon(
     return frame
 
 
-def convert_to_px(inches: int) -> int:
-    return int(inches * PIXELS_PER_INCH)
+def draw_empty_field(
+    is_show_image: bool = False,
+    draw_centerpoints: bool = False,
+    just_black: bool = False,
+) -> np.ndarray:
 
-
-
-# Values in inches
-playing_field_in_x = 8 * 12
-playing_field_in_y = 12 * 12
-
-goal_net_in_x = 48
-goal_net_in_y = 12     # deep
-
-goalbox_in_x = 48
-goalbox_in_y = 24   # infront of the goal
-
-perim_tape_thickness_in = 2
-perim_black_beyond_tape_in = 2
-total_buffer_in = perim_tape_thickness_in + perim_black_beyond_tape_in
-
-total_window_in_y = 2*goal_net_in_y + playing_field_in_y
-total_window_in_x = 2*total_buffer_in + playing_field_in_x
-
-# total window
-total_window_px_x = convert_to_px(total_window_in_x)
-total_window_px_y = convert_to_px(total_window_in_y)
-
-field_center_px_x = int(SCREEN_PX_X /2)
-field_center_px_y = int(SCREEN_PX_Y /2)
-
-# goalbox center is 60 inches up / down from center field
-goalbox_center_top_in = (0, 60)
-goalbox_center_bot_in = (0, -60)
-
-
-
-def draw_empty_field(is_show_image : bool = False, draw_centerpoints: bool = False, just_black: bool = False) -> np.ndarray:
-
-    frame : np.ndarray = np.zeros((total_window_px_y, total_window_px_x, 3), dtype=np.uint8)
+    frame: np.ndarray = np.zeros(
+        (total_window_px_y, total_window_px_x, 3), dtype=np.uint8
+    )
 
     # start with a background
-    background = Rectangle(
-        width= total_window_px_x,
-        height= total_window_px_y
-    )
+    background = Rectangle(width=total_window_px_x, height=total_window_px_y)
 
     # then the 2'' perim 2'' from the edges
 
     # this has been updated to have a chamber 1' from the edges
-    white_px_x = convert_to_px(perim_tape_thickness_in *2 + playing_field_in_x)
-    white_px_y = convert_to_px(perim_tape_thickness_in *2 + playing_field_in_y)
-    white_perimiter = Rectangle(
-        width= white_px_x,
-        height= white_px_y
-    )
+    white_px_x = convert_to_px(perim_tape_thickness_in * 2 + playing_field_in_x)
+    white_px_y = convert_to_px(perim_tape_thickness_in * 2 + playing_field_in_y)
+    white_perimiter = Rectangle(width=white_px_x, height=white_px_y)
 
     # then the playing field
     playing_field_px_x = convert_to_px(playing_field_in_x)
     playing_field_px_y = convert_to_px(playing_field_in_y)
     playing_field = Rectangle(
-        width= playing_field_px_x,
-        height= playing_field_px_y,
+        width=playing_field_px_x,
+        height=playing_field_px_y,
     )
 
     goal_net_px_x = convert_to_px(goal_net_in_x)
     goal_net_px_y = convert_to_px(goal_net_in_y)
 
-    goal_net = Rectangle(
-        width= goal_net_px_x,
-        height=goal_net_px_y
-    )
-
+    goal_net = Rectangle(width=goal_net_px_x, height=goal_net_px_y)
 
     goalbox_px_x = convert_to_px(goalbox_in_x)
     goalbox_px_y = convert_to_px(goalbox_in_y)
-    goalbox = Rectangle(
-        width= goalbox_px_x,
-        height=goalbox_px_y
-    )
-
+    goalbox = Rectangle(width=goalbox_px_x, height=goalbox_px_y)
 
     # BEGIN DRAWING TO SCREEN
     draw_centered_rectangle(frame, background, BLACK)
 
     if just_black:
-        cv2.imwrite('black_field.png', frame)
+        cv2.imwrite("black_field.png", frame)
         return frame
 
     draw_centered_octagon(
-        frame, 
-        white_perimiter, 
+        frame,
+        white_perimiter,
         convert_to_px(12),
-        color=WHITE,)
+        color=WHITE,
+    )
 
     draw_centered_octagon(
-        frame, 
-        playing_field, 
+        frame,
+        playing_field,
         convert_to_px(12),
-        color=GRAY,)
-
-    
+        color=GRAY,
+    )
 
     # draw the goal nets
-    goal_net_px_y_half = goal_net_px_y/2
-    goal_net_offset = int(total_window_px_y/2 - goal_net_px_y_half)
+    goal_net_px_y_half = goal_net_px_y / 2
+    goal_net_offset = int(total_window_px_y / 2 - goal_net_px_y_half)
     draw_vert_centered_rectangle(
-        frame, 
-        goal_net, 
+        frame,
+        goal_net,
         goal_net_offset,
         YELLOW,
-        )
-    
+    )
+
     draw_vert_centered_rectangle(
-        frame, 
-        goal_net, 
+        frame,
+        goal_net,
         -goal_net_offset,
         CYAN,
-        )
+    )
 
-    # draw the goal boxes 
+    # draw the goal boxes
     goalbox_offset = int(goal_net_offset - goal_net_px_y - goal_net_px_y_half)
     draw_vert_centered_rectangle(
-        frame, 
-        goalbox, 
+        frame,
+        goalbox,
         goalbox_offset,
         LIGHT_GRAY,
-        )
-    
+    )
+
     draw_vert_centered_rectangle(
-        frame, 
-        goalbox, 
+        frame,
+        goalbox,
         -goalbox_offset,
         LIGHT_GRAY,
-        )
+    )
 
     if draw_centerpoints:
         centerpoint = Rectangle(
-                width= 30,
-                height=30,
-            )
+            width=30,
+            height=30,
+        )
 
         # draw a box right at the center of the field
-        draw_centered_rectangle(
-            frame,
-            centerpoint
-        )
+        draw_centered_rectangle(frame, centerpoint)
 
         # and then at the center of the light gray goalboxes
         draw_vert_centered_rectangle(
-            frame, 
-            centerpoint, 
+            frame,
+            centerpoint,
             goalbox_offset,
-            )
+        )
 
         draw_vert_centered_rectangle(
-            frame, 
-            centerpoint, 
+            frame,
+            centerpoint,
             -goalbox_offset,
-            )
+        )
 
     if is_show_image:
         cv2.imshow("empty_field", frame)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    cv2.imwrite('empty_field.png', frame)
+    cv2.imwrite("empty_field.png", frame)
     return frame
-
 
 
 def show_frames_side_by_side(
@@ -1026,10 +1023,8 @@ def show_frames_side_by_side(
             interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR,
         )
 
-    combined = np.hstack(
-        (resize_to_height(frame_left), resize_to_height(frame_right))
-    )
-    #cv2.imshow(window_name, combined)
+    combined = np.hstack((resize_to_height(frame_left), resize_to_height(frame_right)))
+    # cv2.imshow(window_name, combined)
     return combined
 
 
@@ -1038,23 +1033,21 @@ def get_side_and_top_down(frame_camera: np.ndarray, frame_field: np.ndarray):
     frame_unchanged = frame_camera.copy()
     field_unchanged = frame_field.copy()
 
+    obj_list: list = get_object_list_from_frame(frame_camera, save_as_file=False)
+    frame_annotated: np.ndarray = draw_object_list_to_frame(
+        frame_unchanged, obj_list, draw_arrows=True
+    )
 
-    obj_list : list = get_object_list_from_frame(frame_camera, save_as_file=False)
-    frame_annotated : np.ndarray = draw_object_list_to_frame(
-        frame_unchanged, 
-        obj_list, 
-        draw_arrows=True)
-
-    field_annotated : np.ndarray = draw_object_list_to_field(
+    field_annotated: np.ndarray = draw_object_list_to_field(
         at_goalbox_center=True,
-        field_frame= field_unchanged,
-        object_list= obj_list,
-        draw_arrows = False)
+        field_frame=field_unchanged,
+        object_list=obj_list,
+        draw_arrows=False,
+    )
 
     combined_frame = show_frames_side_by_side(frame_annotated, field_annotated)
 
     return combined_frame, obj_list
-
 
 
 def to_base_frame(
@@ -1102,10 +1095,8 @@ def convert_in_point_to_screen(point) -> tuple[int, int]:
     inch_x = int(inch_x)
     inch_y = int(inch_y)
 
-
     px_x = convert_to_px(inch_x)
     px_y = convert_to_px(inch_y)
-
 
     # left means center minus the input
     rel_px_x = field_center_px_x + px_x
@@ -1115,12 +1106,16 @@ def convert_in_point_to_screen(point) -> tuple[int, int]:
     rel_px_y = field_center_px_y - px_y
     rel_px_y = int(rel_px_y)
 
-    return (rel_px_x,rel_px_y)
+    return (rel_px_x, rel_px_y)
 
+
+def convert_to_px(inches: float) -> int:
+    """Convert inches to pixels using the global scale factor."""
+    return int(round(inches * PIXELS_PER_INCH))
 
 goalbox_center_top_px = convert_in_point_to_screen(point=goalbox_center_top_in)
 goalbox_center_bot_px = convert_in_point_to_screen(point=goalbox_center_bot_in)
-center_field_px = convert_in_point_to_screen(point=(0,0))
+center_field_px = convert_in_point_to_screen(point=(0, 0))
 
 
 def load_dicts_from_txt(filename="output.txt"):
@@ -1143,8 +1138,8 @@ def load_dicts_from_txt(filename="output.txt"):
         return []
 
 
-def convert_to_top_down(verdict: dict, robot: dict ):
-    '''
+def convert_to_top_down(verdict: dict, robot: dict):
+    """
     from the camera's understanding of pixel center and apparent width, convert to angle and distance
 
     example of a verdict:
@@ -1158,21 +1153,19 @@ def convert_to_top_down(verdict: dict, robot: dict ):
         "area": 1551
         "known_width_in" : 2.7,
     }
-    '''
+    """
 
     # read the status of the robot
     robot_in_x, robot_in_y = robot["center_in"]
 
-
     # change the coordinate system from the robot reference to the global reference
     verdict["center_in"] = convert_robot_dis_and_angle_to_global(
-        angle_rad_robot= robot["theta_rad"],
+        angle_rad_robot=robot["theta_rad"],
         angle_rad_to_obj=verdict["theta_rad"],
-        robot_x= robot_in_x,
-        robot_y= robot_in_y,
-        distance= verdict["distance_in"]
+        robot_x=robot_in_x,
+        robot_y=robot_in_y,
+        distance=verdict["distance_in"],
     )
-
 
     # convert the inches measurement to screen pixels
     verdict["center_px"] = convert_in_point_to_screen(verdict["center_in"])
@@ -1180,22 +1173,18 @@ def convert_to_top_down(verdict: dict, robot: dict ):
     return verdict
 
 
-
-def convert_robot_dis_and_angle_to_global(distance: float, angle_rad_to_obj: float, robot_x: float, robot_y: float, angle_rad_robot):
+def convert_robot_dis_and_angle_to_global(
+    distance: float,
+    angle_rad_to_obj: float,
+    robot_x: float,
+    robot_y: float,
+    angle_rad_robot,
+):
 
     object_x = robot_x + distance * math.cos(angle_rad_to_obj + angle_rad_robot)
     object_y = robot_y + distance * math.sin(angle_rad_to_obj + angle_rad_robot)
 
     return object_x, object_y
-
-    
-
-
-
-
-RADIUS_ROBOT = int(14*PIXELS_PER_INCH/2)
-RADIUS_BALL = int(7*PIXELS_PER_INCH/2)
-RADIUS_TENNIS_BALL = int(2.7*PIXELS_PER_INCH/2)
 
 
 def draw_labeled_circle(
@@ -1246,15 +1235,10 @@ def draw_labeled_circle(
         )
 
         # Allow for an outline extending beyond the nominal circle radius.
-        outline_padding = (
-            (circle_thickness + 1) // 2 if circle_thickness > 0 else 0
-        )
+        outline_padding = (circle_thickness + 1) // 2 if circle_thickness > 0 else 0
 
         text_x = int(round(cx - text_width / 2))
-        text_y = (
-            cy - radius - outline_padding
-            - label_gap - baseline - text_thickness
-        )
+        text_y = cy - radius - outline_padding - label_gap - baseline - text_thickness
 
         cv2.putText(
             frame,
@@ -1292,10 +1276,7 @@ def draw_transparent_circle(
         raise ValueError("Radius must be a positive integer.")
     if not 0.0 <= opacity <= 1.0:
         raise ValueError("Opacity must be between 0.0 and 1.0.")
-    if (
-        not isinstance(border_thickness, (int, np.integer))
-        or border_thickness <= 0
-    ):
+    if not isinstance(border_thickness, (int, np.integer)) or border_thickness <= 0:
         raise ValueError("Border thickness must be a positive integer.")
 
     center = tuple(int(round(value)) for value in center)
@@ -1313,8 +1294,10 @@ def draw_transparent_circle(
     )
 
     cv2.addWeighted(
-        overlay, opacity,
-        frame, 1.0 - opacity,
+        overlay,
+        opacity,
+        frame,
+        1.0 - opacity,
         0,
         dst=frame,
     )
@@ -1342,9 +1325,8 @@ def draw_to_field(frame: Optional[np.ndarray], list_of_objects: list) -> np.ndar
         if isinstance(obj, dict) == False:
             ValueError("object is not a dict!")
         else:
-            obj : dict
+            obj: dict
             ic("drawing to field", obj)
-
 
         frame = draw_transparent_circle(
             frame,
@@ -1352,7 +1334,7 @@ def draw_to_field(frame: Optional[np.ndarray], list_of_objects: list) -> np.ndar
             radius=obj["radius"],
             color=obj["color"],
             opacity=1,
-            )
+        )
 
     return frame
 
@@ -1384,10 +1366,6 @@ def get_most_recent_file(directory: str | Path) -> Path | None:
         key=lambda path: path.stat().st_mtime,
         default=None,
     )
-
-
-
-#obj_list = [ball_yellow, robot_us, robot_them]
 
 
 def draw_line(
@@ -1446,8 +1424,7 @@ def draw_circle_with_arrow(
         The modified frame.
     """
 
-
-    arrow_length = int(radius*2)
+    arrow_length = int(radius * 2)
     radius = int(radius)
 
     if radius <= 0 or arrow_length <= 0 or thickness < 1:
@@ -1455,7 +1432,7 @@ def draw_circle_with_arrow(
         arrow_length = 1
         thickness = 1
         # FIXME handle this more elegantly
-        #raise ValueError("radius, arrow_length, and thickness must be positive")
+        # raise ValueError("radius, arrow_length, and thickness must be positive")
 
     center = (int(round(point[0])), int(round(point[1])))
 
@@ -1466,15 +1443,24 @@ def draw_circle_with_arrow(
     )
 
     cv2.circle(
-        frame, center, radius, color,
-        thickness=thickness, lineType=cv2.LINE_AA,
+        frame,
+        center,
+        radius,
+        color,
+        thickness=thickness,
+        lineType=cv2.LINE_AA,
     )
 
     # only draw the arrow if the angle is different than the default
     if angle != 9999999:
         cv2.arrowedLine(
-            frame, center, endpoint, color,
-            thickness=thickness, line_type=cv2.LINE_AA, tipLength=0.25,
+            frame,
+            center,
+            endpoint,
+            color,
+            thickness=thickness,
+            line_type=cv2.LINE_AA,
+            tipLength=0.25,
         )
 
     return frame
@@ -1490,38 +1476,37 @@ def draw_arrows_from_object_to_robot(frame, robot: dict, obj: dict):
     screen_center_x = int(SCREEN_PX_X / 2)
     screen_center_y = int(SCREEN_PX_Y / 2)
 
+    delta_x_px = abs(screen_center_x - shape_center_x)
+    delta_y_px = abs(screen_center_y - shape_center_y)
 
-    delta_x_px = abs(screen_center_x-shape_center_x)
-    delta_y_px = abs(screen_center_y-shape_center_y)
-
-    arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px,2))
+    arrow_length = math.sqrt(pow(delta_x_px, 2) + pow(delta_y_px, 2))
     arrow_length = round(arrow_length)
 
     # draw to center
     frame = draw_labeled_arrow(
-        frame= frame,
-        color= BLACK,
+        frame=frame,
+        color=BLACK,
         point1=shape_center,
-        point2= robot_center,
-        label=f"px: {arrow_length}"
+        point2=robot_center,
+        label=f"px: {arrow_length}",
     )
-    
+
     # draw along x axis
     frame = draw_labeled_arrow(
-        frame= frame,
-        color= BLUE,
+        frame=frame,
+        color=BLUE,
         point1=(shape_center_x, shape_center_y),
-        point2= (screen_center_x, shape_center_y),
-        label=f"px: {delta_x_px}"
+        point2=(screen_center_x, shape_center_y),
+        label=f"px: {delta_x_px}",
     )
 
     # draw along y axis
     frame = draw_labeled_arrow(
-        frame= frame,
-        color= RED,
+        frame=frame,
+        color=RED,
         point1=(screen_center_x, shape_center_y),
-        point2= (screen_center_x, screen_center_y),
-        label=f"px: {delta_y_px}"
+        point2=(screen_center_x, screen_center_y),
+        label=f"px: {delta_y_px}",
     )
 
     # draw vertical arrow showing screen center
@@ -1533,32 +1518,34 @@ def draw_arrows_from_object_to_robot(frame, robot: dict, obj: dict):
     )
 
 
-
-def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goalbox_center: bool = True, draw_arrows: bool = False) -> np.ndarray:
+def draw_object_list_to_field(
+    field_frame: np.ndarray,
+    object_list: list,
+    at_goalbox_center: bool = True,
+    draw_arrows: bool = False,
+) -> np.ndarray:
 
     robot = {}
 
-
     if at_goalbox_center:
         robot_field_goal = {
-            "name" : "our_bot",
-            "center_in" : goalbox_center_bot_in, 
-            "center_px" : convert_in_point_to_screen((goalbox_center_bot_in)),
-            "radius" : RADIUS_ROBOT,
-            "color" : CYAN,
-            "theta_rad" : math.radians(90)      # up screen
+            "name": "our_bot",
+            "center_in": goalbox_center_bot_in,
+            "center_px": convert_in_point_to_screen((goalbox_center_bot_in)),
+            "radius": RADIUS_ROBOT,
+            "color": CYAN,
+            "theta_rad": math.radians(90),  # up screen
         }
 
         robot = robot_field_goal
 
-    
     # draw robot
     field_frame = draw_circle_with_arrow(
-        angle= robot["theta_rad"],
+        angle=robot["theta_rad"],
         color=robot["color"],
-        frame= field_frame,
-        point= robot["center_px"],
-        radius= robot["radius"]
+        frame=field_frame,
+        point=robot["center_px"],
+        radius=robot["radius"],
     )
 
     # draw objects
@@ -1567,16 +1554,33 @@ def draw_object_list_to_field(field_frame: np.ndarray, object_list: list, at_goa
 
         # draw object
         field_frame = draw_circle_with_arrow(
-            angle= ojb["theta_rad"],
+            angle=ojb["theta_rad"],
             color=ojb["color"],
-            frame= field_frame,
-            point= ojb["center_px"],
-            radius= obj["radius"]
+            frame=field_frame,
+            point=ojb["center_px"],
+            radius=obj["radius"],
         )
 
         if draw_arrows:
-            draw_arrows_from_object_to_robot(frame= field_frame, robot= robot, obj= obj)
+            draw_arrows_from_object_to_robot(frame=field_frame, robot=robot, obj=obj)
 
     return field_frame
 
 
+def read_video_frames(video_path: str) -> Iterator[np.ndarray]:
+    """Yield each video frame as a BGR NumPy array."""
+    capture = cv2.VideoCapture(video_path)
+
+    try:
+        if not capture.isOpened():
+            raise OSError(f"Could not open video: {video_path}")
+
+        while True:
+            success, frame = capture.read()
+
+            if not success:
+                break
+
+            yield frame
+    finally:
+        capture.release()

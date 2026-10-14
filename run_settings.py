@@ -1,4 +1,4 @@
-from tam_library import RED, YELLOW, CYAN 
+from tam_library_colors import RED, YELLOW, CYAN 
 
 kernel_size = 3
 FOCAL_LENGTH = 1253.333     # recalc this when able
@@ -11,6 +11,8 @@ PIXELS_PER_INCH = 5
 CIRCLE = "CIRCLE"
 RECT = "RECT"
 
+USE_DRAWN_FIELD : bool = True
+
 ball_red: dict = {
     "name" : "red_ball",
     "shape" : CIRCLE,
@@ -20,7 +22,7 @@ ball_red: dict = {
 }
 
 ball_yellow : dict = {
-    "name" : "ball_yellow",
+    "name" : "tennis_ball",
     "shape" : CIRCLE,
     "path_to_hsv" : "hsv_bounds/ball_yellow.txt",
     "known_width_in" : 2.7,
@@ -45,7 +47,7 @@ hat_yellow : dict = {
 
 search_for_list = [
     ball_red,
-    #ball_yellow,
+    ball_yellow,
     hat_cyan,
-    hat_yellow,
+    #hat_yellow,
 ]

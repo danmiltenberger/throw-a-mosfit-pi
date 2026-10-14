@@ -1,0 +1,13 @@
+[
+    {
+        "name": "ball_yellow",
+        "shape": "RECT",
+        "known_width_in": 2.7,
+        "center_x": 117,
+        "center_y": 297,
+        "width": 77,
+        "height": 52,
+        "radius": 38,
+        "area": 4004
+    }
+]
