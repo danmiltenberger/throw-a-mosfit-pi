@@ -20,6 +20,7 @@ from run_settings import (
     RECT,
     search_for_list,
     PIXELS_PER_INCH,
+    USE_DRAWN_FIELD,
 )
 from tam_library_colors import *
 
@@ -30,7 +31,7 @@ from tam_library_colors import *
 HSV_BOUNDS = "hsv_bounds"
 FIELD_PNGS = "field_pngs"
 TRAINING_DATA = "training_data"
-TRAINING_DATA_CSVS = "training_data_csvs"
+
 
 # object consts
 RADIUS_ROBOT = int(14 * PIXELS_PER_INCH / 2)
@@ -76,16 +77,20 @@ class Point:
     x: float
     y: float
 
+  
+
 
 @dataclass
 class Bearing:
-    ''' distance in inches and angle in radians with respect to bot'''
-    dis_in : float
-    theta_rad : float
+    """distance in inches and angle in radians with respect to bot"""
+
+    dis_in: float
+    theta_rad: float
+
 
 @dataclass
 class Detection:
-    "a line that explains what the vision system detected in the frame"
+    """structure that explains what the vision system detected in the frame"""
 
     # possibly later add goal post info
 
@@ -94,13 +99,13 @@ class Detection:
     detected_yellow_bot: bool
 
     # keep the original pixel position and width from the camera
-    pixels_soccer_ball_center: Point
-    pixels_cyan_bot_center: Point
-    pixels_yellow_bot_center: Point
+    px_center_soccer_ball: Point
+    px_center_cyan_bot: Point
+    px_center_yellow_bot: Point
 
-    pixels_soccer_ball_width: int
-    pixels_cyan_bot_width: int
-    pixels_yellow_bot_width: int
+    px_width_soccer_ball: int
+    px_width_cyan_bot: int
+    px_width_yellow_bot: int
 
     # also keep inches and distance (if we later improve the top down conversion)
     bearing_soccer_ball: Bearing
@@ -108,9 +113,9 @@ class Detection:
     bearing_yellow_bot: Bearing
 
     # finally, and most usefully, convert the robot's bearing to a field position in inches, with the origin at the center of the field
-    inches_soccer_ball: Point
-    inches_cyan_bot: Point
-    inches_yellow_bot: Point
+    in_global_soccer_ball: Point
+    in_global_cyan_bot: Point
+    in_global_yellow_bot: Point
 
 
 @dataclass
@@ -1629,3 +1634,50 @@ def read_video_frames(video_path: str) -> Iterator[np.ndarray]:
             yield frame
     finally:
         capture.release()
+
+
+def get_frame_and_field(frame: np.ndarray) -> np.ndarray:
+
+    if USE_DRAWN_FIELD:
+        frame_field: np.ndarray = load_image(f"{FIELD_PNGS}/empty_field.png")
+    else:
+        frame_field: np.ndarray = load_image(f"{FIELD_PNGS}/black_field.png")
+
+    combined_frame, object_list = get_side_and_top_down(
+        frame,
+        frame_field,
+    )
+
+    ic(object_list)
+
+    return combined_frame
+
+
+def analyze_photo_or_video(file_path: str) -> None:
+    if file_path.endswith(".mp4"):
+        frames = read_video_frames(file_path)
+    elif file_path.endswith(".png") or file_path.endswith(".jpg"):
+        frame = load_image(file_path)
+        combined_frame = get_frame_and_field(frame)
+        cv2.imshow("frame and field", combined_frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        return
+    else:
+        raise ValueError(
+            "Unsupported file format. Please provide a .mp4, .png, or .jpg file."
+        )
+
+    try:
+        for frame_index, frame in enumerate(frames):
+
+            combined_frame = get_frame_and_field(frame)
+
+            cv2.imshow("frame and field", combined_frame)
+
+            # Press 'q' to stop.
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    finally:
+        frames.close()
+        cv2.destroyAllWindows()
