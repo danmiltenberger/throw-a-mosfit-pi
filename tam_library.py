@@ -38,7 +38,6 @@ RADIUS_BALL = int(7 * PIXELS_PER_INCH / 2)
 RADIUS_TENNIS_BALL = int(2.7 * PIXELS_PER_INCH / 2)
 
 
-
 field_center_px_x = int(SCREEN_PX_X / 2)
 field_center_px_y = int(SCREEN_PX_Y / 2)
 
@@ -68,6 +67,60 @@ total_window_in_x = 2 * total_buffer_in + playing_field_in_x
 # total window
 total_window_px_x = int(total_window_in_x * PIXELS_PER_INCH)
 total_window_px_y = int(total_window_in_y * PIXELS_PER_INCH)
+
+
+@dataclass
+class Point:
+    """A point in 2D space, in inches or pixels."""
+
+    x: float
+    y: float
+
+
+@dataclass
+class Bearing:
+    ''' distance in inches and angle in radians with respect to bot'''
+    dis_in : float
+    theta_rad : float
+
+@dataclass
+class Detection:
+    "a line that explains what the vision system detected in the frame"
+
+    # possibly later add goal post info
+
+    detected_soccer_ball: bool
+    detected_cyan_bot: bool
+    detected_yellow_bot: bool
+
+    # keep the original pixel position and width from the camera
+    pixels_soccer_ball_center: Point
+    pixels_cyan_bot_center: Point
+    pixels_yellow_bot_center: Point
+
+    pixels_soccer_ball_width: int
+    pixels_cyan_bot_width: int
+    pixels_yellow_bot_width: int
+
+    # also keep inches and distance (if we later improve the top down conversion)
+    bearing_soccer_ball: Bearing
+    bearing_cyan_bot: Bearing
+    bearing_yellow_bot: Bearing
+
+    # finally, and most usefully, convert the robot's bearing to a field position in inches, with the origin at the center of the field
+    inches_soccer_ball: Point
+    inches_cyan_bot: Point
+    inches_yellow_bot: Point
+
+
+@dataclass
+class Rectangle:
+    """Rectangle geometry following OpenCV's x, y, width, height convention."""
+
+    x: int = 0
+    y: int = 0
+    width: int = 200
+    height: int = 100
 
 
 def load_image(image_path: str) -> np.ndarray:
@@ -707,16 +760,6 @@ def draw_labeled_arrow(
     return frame
 
 
-@dataclass
-class Rectangle:
-    """Rectangle geometry following OpenCV's x, y, width, height convention."""
-
-    x: int = 0
-    y: int = 0
-    width: int = 200
-    height: int = 100
-
-
 def draw_centered_rectangle(
     frame: np.ndarray,
     rectangle: Rectangle,
@@ -1113,6 +1156,7 @@ def convert_in_point_to_screen(point) -> tuple[int, int]:
 def convert_to_px(inches: float) -> int:
     """Convert inches to pixels using the global scale factor."""
     return int(round(inches * PIXELS_PER_INCH))
+
 
 goalbox_center_top_px = convert_in_point_to_screen(point=goalbox_center_top_in)
 goalbox_center_bot_px = convert_in_point_to_screen(point=goalbox_center_bot_in)

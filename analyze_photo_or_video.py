@@ -5,8 +5,8 @@ import numpy as np
 
 from run_settings import USE_DRAWN_FIELD
 
-file_path = "training_data/2026-10-11T20_53_06.567733.png"
-#file_path = "training_data/tennis_ball_with_corners.mp4"
+#file_path = "training_data/2026-10-11T20_53_06.567733.png"
+file_path = "training_data/tennis_ball_with_corners.mp4"
 
 
 def get_frame_and_field(frame: np.ndarray) -> np.ndarray:
