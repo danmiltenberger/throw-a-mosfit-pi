@@ -32,11 +32,11 @@ MIN_AREA = "min_area"
 
 ball_red: dict = {
     "name" : BALL_RED,
-    "shape" : RECT,
+    "shape" : CIRCLE,
     "path_to_hsv" : "hsv_bounds/ball_red.txt",
     KNOWN_WIDTH_IN : 7,
     "color" : RED,
-    MIN_AREA : 10E3
+    MIN_AREA : 1000
 }
 
 ball_yellow : dict = {
@@ -45,7 +45,7 @@ ball_yellow : dict = {
     "path_to_hsv" : "hsv_bounds/ball_yellow.txt",
     KNOWN_WIDTH_IN : 2.7,
     "color" : YELLOW,
-    MIN_AREA : 10E3
+    MIN_AREA : 10
 }
 
 hat_cyan : dict = {
@@ -54,7 +54,7 @@ hat_cyan : dict = {
     "path_to_hsv" : "hsv_bounds/hat_cyan.txt",
     KNOWN_WIDTH_IN : 8,     # FIXME
     "color" : CYAN,
-    MIN_AREA : 10E3
+    MIN_AREA : 1000
 }
 
 hat_yellow : dict = {
@@ -63,14 +63,14 @@ hat_yellow : dict = {
     "path_to_hsv" : "hsv_bounds/hat_yellow.txt", 
     KNOWN_WIDTH_IN : 8,     # FIXME
     "color" : YELLOW,
-    MIN_AREA : 10E3
+    MIN_AREA : 1000
 }
 
 search_for_list = [
     ball_red,
     ball_yellow,
     hat_cyan,
-    #hat_yellow,
+    hat_yellow,
 ]
 
 search_for_dict = {

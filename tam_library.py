@@ -1587,10 +1587,6 @@ def analyze_photo_or_video(file_path: str) -> None:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-
-
-
-
         return
     else:
         raise ValueError(

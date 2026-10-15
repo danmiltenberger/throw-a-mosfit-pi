@@ -21,17 +21,19 @@ from tam_library import (
     field_center_px_y,
     draw_labeled_arrow,
     load_image,
+    show_frames_side_by_side,
+    
 )
 
-from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS
+from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, USE_DRAWN_FIELD
 
 # let's update the codebase with rigorous object oriented programming
 
 
 def is_valid_contour(contour, area, object_dict: dict) -> bool:
-    '''
+    """
     check if the contour is valid based on area, circularity, etc
-    '''
+    """
 
     if MIN_AREA in object_dict.keys():
         if area < object_dict[MIN_AREA]:
@@ -76,8 +78,7 @@ def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # get the best contour
-        best_contour, best_area = get_best_contour(contours, object_dict= object_dict)
-
+        best_contour, best_area = get_best_contour(contours, object_dict=object_dict)
 
         # if there is no contour, this object has not been detected, go to next object
         if best_contour is None:
@@ -87,7 +88,9 @@ def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
         best_contour, best_area = get_best_contour(contours, object_dict)
 
         # if the contour is no good, skip it
-        contour_verdict = is_valid_contour(contour= best_contour, area= best_area, object_dict= object_dict)
+        contour_verdict = is_valid_contour(
+            contour=best_contour, area=best_area, object_dict=object_dict
+        )
         if contour_verdict == False:
             continue
 
@@ -120,6 +123,9 @@ def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
 
 
 def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detection:
+    """
+    Convert what the camera sees to a range and azimuth. Then, convert that from the robot's frame to the global frame
+    """
 
     def calc_angle_rad_from_point(point: Point) -> float:
         """Return the horizontal angle from straight ahead, in radians.
@@ -135,7 +141,7 @@ def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detecti
         pixel_x = point.x
         delta_x = pixel_x - SCREEN_CENTER_X
 
-        return math.atan2(delta_x, FOCAL_LENGTH) * -1
+        return math.atan2(delta_x, FOCAL_LENGTH) + np.pi
 
     def calc_distance_from_bot() -> float:
         known_width = search_for_dict[this_detect.name][KNOWN_WIDTH_IN]
@@ -143,15 +149,14 @@ def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detecti
         Z = (known_width * FOCAL_LENGTH) / percieved_width
         return Z
 
-
     def convert_pos_and_ang_to_robot_in() -> Point:
 
         # get the detection's global position in inches
-        object_x = float(robot.position_in.x) + float(this_detect.range) * math.cos(
-            float(this_detect.azimuth_rad) + float(robot.azimuth_rad)
+        object_x = robot.field_pos_in.x + this_detect.range * math.cos(
+            this_detect.azimuth_rad + robot.azimuth_rad
         )
 
-        object_y = float(robot.position_in.y) + float(this_detect.range) * math.sin(
+        object_y = float(robot.field_pos_in.y) + float(this_detect.range) * math.sin(
             float(this_detect.azimuth_rad) + float(robot.azimuth_rad)
         )
 
@@ -159,18 +164,20 @@ def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detecti
 
     # get the range and azimuth from the robot
     this_detect.range = calc_distance_from_bot()
-    this_detect.azimuth_rad = calc_angle_rad_from_point(this_detect.center_px)
+    this_detect.azimuth_rad = calc_angle_rad_from_point(this_detect.screen_center_px)
 
     # convert to the global position in inches
-    this_detect.pos_global_in = convert_pos_and_ang_to_robot_in()
+    this_detect.field_pos_in = convert_pos_and_ang_to_robot_in()
 
     # convert to the global position in pixels
-    this_detect.pos_global_px = convert_to_field_pixels_global(this_detect.pos_global_in)
+    this_detect.field_pos_px = convert_to_field_pixels_global(this_detect.field_pos_in)
 
     return this_detect
 
 
-def draw_detection_list_to_frame(frame: np.ndarray, detect_list: list[Detection]) -> np.ndarray:
+def draw_detection_list_to_frame(
+    frame: np.ndarray, detect_list: list[Detection]
+) -> np.ndarray:
     for detection in detect_list:
 
         shape = search_for_dict[detection.name][SHAPE_TO_DRAW]
@@ -182,11 +189,11 @@ def draw_detection_list_to_frame(frame: np.ndarray, detect_list: list[Detection]
 
         # draw a small dot at the center
         frame = cv2.circle(
-            img= frame,
-            center= shape_center,
-            radius= 3,
-            color= color,
-            thickness= -1,
+            img=frame,
+            center=shape_center,
+            radius=3,
+            color=color,
+            thickness=-1,
         )
 
         # draw a circle around the object
@@ -204,43 +211,44 @@ def draw_detection_list_to_frame(frame: np.ndarray, detect_list: list[Detection]
         elif shape == RECT:
 
             frame = draw_centered_rectangle(
-                frame= frame,
-                color= color,
-                width_px= detection.width_px,
-                height_px= detection.width_px,
-                center= detection.center_px,
+                frame=frame,
+                color=color,
+                width_px=detection.width_px,
+                height_px=detection.width_px,
+                center=detection.center_px,
             )
 
     return frame
 
 
-def draw_detection_list_to_field(field_frame : np.ndarray, detect_list: list[Detection], robot : OurRobot) -> np.ndarray:
+def draw_detection_list_to_field(
+    field_frame: np.ndarray, detect_list: list[Detection], robot: OurRobot
+) -> np.ndarray:
     for detection in detect_list:
         draw_shape = search_for_dict[detection.name][SHAPE_TO_DRAW]
         draw_color = search_for_dict[detection.name][DRAW_COLOR]
-        width_in = search_for_dict[detection.name][KNOWN_WIDTH_IN]
-        width_px = convert_to_px(width_in)
+        known_width_in = search_for_dict[detection.name][KNOWN_WIDTH_IN]
+        known_width_px = convert_to_px(known_width_in)
 
         detection = get_detection_global_pos(detection, robot)
 
         if draw_shape == CIRCLE:
             cv2.circle(
-                img= field_frame,
-                center= (int(detection.pos_global_px.x), int(detection.pos_global_px.y)),
-                color= draw_color,
-                radius= int(width_px/2),
-                thickness= DRAW_THICKNESS
+                img=field_frame,
+                center=(int(detection.field_pos_px.x), int(detection.field_pos_px.y)),
+                color=draw_color,
+                radius=int(known_width_px / 2),
+                thickness=DRAW_THICKNESS,
             )
 
         elif draw_shape == RECT:
             field_frame = draw_centered_rectangle(
-                frame= field_frame,
-                color= draw_color,
-                width_px= detection.width_px,
-                height_px= detection.width_px,
-                center= detection.pos_global_px
+                frame=field_frame,
+                color=draw_color,
+                width_px=detection.width_px,
+                height_px=detection.width_px,
+                center=detection.field_pos_px,
             )
-            
 
     return field_frame
 
@@ -280,9 +288,9 @@ def draw_centered_rectangle(
 
     corners = [
         (-half_w, -half_h),
-        ( half_w, -half_h),
-        ( half_w,  half_h),
-        (-half_w,  half_h),
+        (half_w, -half_h),
+        (half_w, half_h),
+        (-half_w, half_h),
     ]
 
     cos_a = math.cos(angle_rad)
@@ -332,26 +340,24 @@ def draw_robot_to_field(field_frame: np.ndarray, bot: OurRobot) -> np.ndarray:
 
     # draw a bounding rectangle
     field_frame = draw_centered_rectangle(
-        width_px= bot_width_px,
-        height_px= bot_width_px,
-        frame= field_frame,
-        color= bot.color,
-        center= bot.position_px,
-        angle_rad= bot.azimuth_rad
+        width_px=bot_width_px,
+        height_px=bot_width_px,
+        frame=field_frame,
+        color=bot.color,
+        center=bot.field_pos_px,
+        angle_rad=bot.azimuth_rad,
     )
 
     # draw an arrow showing which direction the bot is facing
     field_frame = draw_arrow(
-        frame= field_frame,
-        start= bot.position_px,
-        color= bot.color,
-        angle_rad= bot.azimuth_rad,
-        distance= bot_width_px*2,
+        frame=field_frame,
+        start=bot.field_pos_px,
+        color=bot.color,
+        angle_rad=bot.azimuth_rad,
+        distance=bot_width_px * 2,
     )
 
-
     return field_frame
-
 
 
 def _draw_rotated_label(
@@ -560,55 +566,92 @@ def draw_arrow(
     return frame
 
 
-def example_stack():
+def show_field(camera_frame: np.ndarray, show_field : bool = True, show_cam : bool = True, show_one_frame: bool = True) -> list[np.ndarray]:
+
+    output_frames_list = []
 
     ### Exame the camera feed and get the list of detections
-
-    #camera_frame ="training_data/vlcsnap-2026-10-07-15h58m42s688.png"
-    #camera_frame = load_image(camera_frame)
-    #detect_list = get_detections_from_frame(camera_frame)
-    #camera_frame = draw_detection_list_to_frame(camera_frame, detect_list)
+    detect_list = get_detections_from_frame(camera_frame)
+    camera_frame = draw_detection_list_to_frame(camera_frame, detect_list)
 
     ### Show to the user with the top down GUI
-    field_frame = "field_pngs/empty_field.png"
+    if USE_DRAWN_FIELD:
+        field_frame = "field_pngs/empty_field.png"
+    else:
+        field_frame = "field_pngs/black_field.png"
     field_frame = load_image(field_frame)
 
-    red_ball = Detection(
-        name= BALL_RED,
-        azimuth_rad= 0,
-        width_px= 50,
+    our_bot = OurRobot()
+    our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
+
+    field_frame = draw_detection_list_to_field(
+        field_frame=field_frame, detect_list=detect_list, robot=our_bot
     )
 
+    field_frame = draw_robot_to_field(field_frame=field_frame, bot=our_bot)
 
-    detect_list = [red_ball]
 
-    our_bot = OurRobot()
-    our_bot.position_px = convert_to_field_pixels_global(our_bot.position_in)
+    combined_frame = show_frames_side_by_side(camera_frame, field_frame)
 
-   
-    field_frame = draw_detection_list_to_field(
-        field_frame= field_frame, 
-        detect_list= detect_list,
-        robot= our_bot)
+    output_frames_list.append(combined_frame)
+    return output_frames_list
+ 
 
-    field_frame = draw_robot_to_field(field_frame= field_frame, bot= our_bot)
+        
 
-    for detection in detect_list:
 
-        relative_angle = round(math.degrees(abs(detection.azimuth_rad)))
 
-        draw_arrow(
-            frame= field_frame,
-            color= search_for_dict[detection.name][DRAW_COLOR],
-            start= our_bot.position_px,
-            end= detection.pos_global_px,
-            label= relative_angle,
-        )
+def load_video_frames(video_path):
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
 
-   # cv2.imshow("camera", camera_frame)
-    cv2.imshow("field", field_frame)
-    cv2.waitKey(0)
+    frames = []
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frames.append(frame)
+    finally:
+        cap.release()
+
+    return frames
+
+
+def show_video(frames, window_name="Video", fps=30, wait_key=1):
+    if not frames:
+        raise ValueError("No frames to display.")
+
+    delay = max(1, int(1000 / fps))
+
+    for frame in frames:
+        cv2.imshow(window_name, frame)
+
+        # Press 'q' to stop early
+        if cv2.waitKey(delay) & 0xFF == ord("q"):
+            break
+
     cv2.destroyAllWindows()
 
+
+
+
 if __name__ == "__main__":
-    example_stack()
+    example_photo = "training_data/2026-10-11T20_53_06.567733.png"
+    example_video = "training_data/tennis_ball_with_corners.mp4"
+
+    print("loading video frames")
+    video_frames = load_video_frames(example_video)
+
+    print("calculating and showing output to user")
+
+    field_list_of_frames = []
+
+    for frame in video_frames:
+        output_list = show_field(frame)
+        field_list_of_frames.append(output_list[0])
+        
+
+    show_video(field_list_of_frames)
+    

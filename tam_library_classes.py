@@ -33,10 +33,10 @@ class Rectangle:
 
 @dataclass 
 class OurRobot:
-    position_in : Point = field(default_factory=lambda: Point(0.0, -60))
+    field_pos_in : Point = field(default_factory=lambda: Point(0.0, -60))
     azimuth_rad : float = -np.pi/2
 
-    position_px : Point = field(default_factory=lambda: Point(0.0, 0))
+    field_pos_px : Point = field(default_factory=lambda: Point(0.0, 0))
 
     color = YELLOW
     width_in = 14
@@ -49,7 +49,7 @@ class Detection:
     # From the camera
     name: str = "no name"
     width_px: int = 0
-    center_px: Point = field(default_factory=lambda: Point(0.0, 0.0))
+    screen_center_px: Point = field(default_factory=lambda: Point(0.0, 0.0))
     area : int = 0
 
     # Updated with inch range and angle
@@ -57,17 +57,17 @@ class Detection:
     azimuth_rad: float = 0
 
     # Updated to a global position
-    pos_global_in: Point = field(default_factory=lambda: Point(0.0, 0.0))
-    pos_global_px: Point = field(default_factory=lambda: Point(0.0, 0.0))
+    field_pos_in: Point = field(default_factory=lambda: Point(0.0, 0.0))
+    field_pos_px: Point = field(default_factory=lambda: Point(0.0, 0.0))
 
     def __str__(self) -> str:
         return (
             f"Detection({self.name!r}, "
-            f"width_px={self.width_px}, "
-            f"area={self.area}, "
+           #f"width_px={self.width_px}, "
+           # f"area={self.area}, "
            # f"center_px={self.center_px}, "
             f"range={self.range:.2f} in, "
-            #f"azimuth={self.azimuth_rad:.3f} rad, "
-            #f"pos_global_in={self.pos_global_in}, "
-            #f"pos_global_px={self.pos_global_px})"
+            f"azimuth={self.azimuth_rad:.3f} rad, "
+            f"pos_global_in={round(self.field_pos_in.x), round(self.field_pos_in.y)}, "
+            f"pos_global_px={round(self.field_pos_px.x), round(self.field_pos_px.y)})"
         )
