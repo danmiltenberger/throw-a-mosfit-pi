@@ -4,6 +4,7 @@ import math
 from icecream import ic
 from settings_view import SHOW_ARROWS
 from settings_run import search_for_dict, MIN_AREA, MIN_CIRCLARITY, BALL_RED
+from pathlib import Path
 from tam_library_classes import Detection, Point, OurRobot
 from tam_library_colors import BLUE, WHITE
 from tam_library import (
@@ -54,7 +55,7 @@ def is_valid_contour(contour, area, object_dict: dict) -> bool:
         return True
 
 
-def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
+def get_detections_from_frame(frame: np.ndarray, bot: OurRobot) -> list[Detection]:
     "from the input frame, search for the objects as specified in the run_settings.py search_list"
     "this file DOES NOT convert the camera view to the global positions, just returns a list of what it sees in pixels"
 
@@ -102,7 +103,7 @@ def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
         if object_dict["shape"] == CIRCLE:
             (x, y), radius = cv2.minEnclosingCircle(best_contour)
             center_point = Point(x, y)
-            this_detect.center_px = center_point
+            this_detect.screen_center_px = center_point
             this_detect.width_px = int(radius * 2)
 
             this_detect.area = int(np.pi * radius * radius)
@@ -113,66 +114,61 @@ def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
             x_center = int(left_x + width / 2)
             y_center = int(top_y + height / 2)
             center_point = Point(x=x_center, y=y_center)
-            this_detect.center_px = center_point
+            this_detect.screen_center_px = center_point
             this_detect.width_px = width
             this_detect.area = int(width * height)
+
+        # determine the distance and angle relative to the camera
+        this_detect.range = calc_distance_from_bot(this_detect)
+        this_detect.azimuth_rad = calc_angle_from_screen_center(this_detect.screen_center_px)
+
+        # convert to the field xy system in inches
+        this_detect.field_pos_in = convert_pos_and_ang_to_robot_in(this_detect, bot)
+
+        # convert the field inches to the window pixels
+        this_detect.field_pos_px = convert_to_field_pixels_global(this_detect.field_pos_in)
 
         detect_list.append(this_detect)
 
     return detect_list
 
 
-def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detection:
+def convert_pos_and_ang_to_robot_in(this_detect: Detection, robot: OurRobot) -> Point:
+
+    # get the detection's global position in inches
+    object_x = robot.field_pos_in.x + this_detect.range * math.cos(
+        this_detect.azimuth_rad + robot.azimuth_rad
+    )
+
+    object_y = float(robot.field_pos_in.y) + float(this_detect.range) * math.sin(
+        float(this_detect.azimuth_rad) + float(robot.azimuth_rad)
+    )
+
+    return Point(object_x, object_y)
+
+
+def calc_distance_from_bot(this_detect: Detection) -> float:
+    known_width = search_for_dict[this_detect.name][KNOWN_WIDTH_IN]
+    percieved_width = this_detect.width_px
+    Z = (known_width * FOCAL_LENGTH) / percieved_width
+    return Z
+
+
+def calc_angle_from_screen_center(point: Point) -> float:
+    """Return the horizontal angle from straight ahead, in radians.
+
+    Args:
+        pixel_x: Object's horizontal coordinate in the image.
+        focal_length_x: Camera's horizontal focal length in pixels.
+        center_x: Camera's horizontal principal point in pixels.
+
+    Returns:
+        Signed angle: negative to the left, positive to the right.
     """
-    Convert what the camera sees to a range and azimuth. Then, convert that from the robot's frame to the global frame
-    """
+    pixel_x = point.x
+    delta_x = pixel_x - SCREEN_CENTER_X
 
-    def calc_angle_rad_from_point(point: Point) -> float:
-        """Return the horizontal angle from straight ahead, in radians.
-
-        Args:
-            pixel_x: Object's horizontal coordinate in the image.
-            focal_length_x: Camera's horizontal focal length in pixels.
-            center_x: Camera's horizontal principal point in pixels.
-
-        Returns:
-            Signed angle: negative to the left, positive to the right.
-        """
-        pixel_x = point.x
-        delta_x = pixel_x - SCREEN_CENTER_X
-
-        return math.atan2(delta_x, FOCAL_LENGTH) + np.pi
-
-    def calc_distance_from_bot() -> float:
-        known_width = search_for_dict[this_detect.name][KNOWN_WIDTH_IN]
-        percieved_width = this_detect.width_px
-        Z = (known_width * FOCAL_LENGTH) / percieved_width
-        return Z
-
-    def convert_pos_and_ang_to_robot_in() -> Point:
-
-        # get the detection's global position in inches
-        object_x = robot.field_pos_in.x + this_detect.range * math.cos(
-            this_detect.azimuth_rad + robot.azimuth_rad
-        )
-
-        object_y = float(robot.field_pos_in.y) + float(this_detect.range) * math.sin(
-            float(this_detect.azimuth_rad) + float(robot.azimuth_rad)
-        )
-
-        return Point(object_x, object_y)
-
-    # get the range and azimuth from the robot
-    this_detect.range = calc_distance_from_bot()
-    this_detect.azimuth_rad = calc_angle_rad_from_point(this_detect.screen_center_px)
-
-    # convert to the global position in inches
-    this_detect.field_pos_in = convert_pos_and_ang_to_robot_in()
-
-    # convert to the global position in pixels
-    this_detect.field_pos_px = convert_to_field_pixels_global(this_detect.field_pos_in)
-
-    return this_detect
+    return math.atan2(delta_x, FOCAL_LENGTH)
 
 
 def draw_detection_list_to_frame(
@@ -183,8 +179,8 @@ def draw_detection_list_to_frame(
         shape = search_for_dict[detection.name][SHAPE_TO_DRAW]
         color = search_for_dict[detection.name][DRAW_COLOR]
 
-        shape_center_x = detection.center_px.x
-        shape_center_y = detection.center_px.y
+        shape_center_x = detection.screen_center_px.x
+        shape_center_y = detection.screen_center_px.y
         shape_center = (int(shape_center_x), int(shape_center_y))
 
         # draw a small dot at the center
@@ -230,7 +226,6 @@ def draw_detection_list_to_field(
         known_width_in = search_for_dict[detection.name][KNOWN_WIDTH_IN]
         known_width_px = convert_to_px(known_width_in)
 
-        detection = get_detection_global_pos(detection, robot)
 
         if draw_shape == CIRCLE:
             cv2.circle(
@@ -566,12 +561,12 @@ def draw_arrow(
     return frame
 
 
-def show_field(camera_frame: np.ndarray, show_field : bool = True, show_cam : bool = True, show_one_frame: bool = True) -> list[np.ndarray]:
+def show_field(camera_frame: np.ndarray, bot: OurRobot) -> list[np.ndarray]:
 
     output_frames_list = []
 
     ### Exame the camera feed and get the list of detections
-    detect_list = get_detections_from_frame(camera_frame)
+    detect_list = get_detections_from_frame(camera_frame, bot)
     camera_frame = draw_detection_list_to_frame(camera_frame, detect_list)
 
     ### Show to the user with the top down GUI
@@ -580,9 +575,6 @@ def show_field(camera_frame: np.ndarray, show_field : bool = True, show_cam : bo
     else:
         field_frame = "field_pngs/black_field.png"
     field_frame = load_image(field_frame)
-
-    our_bot = OurRobot()
-    our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
 
     field_frame = draw_detection_list_to_field(
         field_frame=field_frame, detect_list=detect_list, robot=our_bot
@@ -596,10 +588,6 @@ def show_field(camera_frame: np.ndarray, show_field : bool = True, show_cam : bo
     output_frames_list.append(combined_frame)
     return output_frames_list
  
-
-        
-
-
 
 def load_video_frames(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -617,6 +605,61 @@ def load_video_frames(video_path):
         cap.release()
 
     return frames
+
+
+def save_frames_as_video(
+    frames,
+    output_path,
+    fps=30,
+    codec="mp4v",
+    frame_size=None,
+):
+    """
+    Save a list of BGR frames as a video.
+
+    Args:
+        frames: List/array of frames, each shaped (H, W, 3) in BGR format.
+        output_path: Output video file path, e.g. "output.mp4".
+        fps: Frames per second.
+        codec: FourCC codec. Use "mp4v" for .mp4 or "XVID" for .avi.
+        frame_size: Optional (width, height). If None, inferred from the first frame.
+
+    Returns:
+        Path to the saved video.
+
+    Raises:
+        ValueError: If frames is empty or frames have inconsistent sizes.
+    """
+    if not frames:
+        raise ValueError("frames must contain at least one frame")
+
+    if frame_size is None:
+        height, width = frames[0].shape[:2]
+        frame_size = (width, height)
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fourcc = cv2.VideoWriter_fourcc(*codec)
+    writer = cv2.VideoWriter(str(output_path), fourcc, fps, frame_size)
+
+    if not writer.isOpened():
+        raise RuntimeError(
+            f"Could not open VideoWriter for {output_path}. "
+            "Try codec='XVID' with an .avi output file."
+        )
+
+    try:
+        for i, frame in enumerate(frames):
+            if frame.shape[1::-1] != frame_size:
+                raise ValueError(
+                    f"Frame {i} has size {frame.shape[1::-1]}, expected {frame_size}"
+                )
+            writer.write(frame)
+    finally:
+        writer.release()
+
+    return output_path
 
 
 def show_video(frames, window_name="Video", fps=30, wait_key=1):
@@ -641,6 +684,9 @@ if __name__ == "__main__":
     example_photo = "training_data/2026-10-11T20_53_06.567733.png"
     example_video = "training_data/tennis_ball_with_corners.mp4"
 
+    our_bot = OurRobot()
+    our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
+
     print("loading video frames")
     video_frames = load_video_frames(example_video)
 
@@ -649,7 +695,7 @@ if __name__ == "__main__":
     field_list_of_frames = []
 
     for frame in video_frames:
-        output_list = show_field(frame)
+        output_list = show_field(frame, our_bot)
         field_list_of_frames.append(output_list[0])
         
 

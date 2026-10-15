@@ -1596,7 +1596,7 @@ def analyze_photo_or_video(file_path: str) -> None:
     try:
         for frame_index, frame in enumerate(frames):
 
-            combined_frame = get_frame_and_field(frame)
+            combined_frame = show_field(camera_frame)
 
             cv2.imshow("frame and field", combined_frame)
 
