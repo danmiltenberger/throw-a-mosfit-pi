@@ -12,7 +12,7 @@ from typing import Iterator, Optional
 from tam_library_classes import Detection, Point, Rectangle, OurRobot
 
 
-from run_settings import (
+from settings_run import (
     kernel_size,
     FOCAL_LENGTH,
     CAMERA_CAPTURE_X,
@@ -71,136 +71,8 @@ total_window_in_x = 2 * total_buffer_in + playing_field_in_x
 total_window_px_x = int(total_window_in_x * PIXELS_PER_INCH)
 total_window_px_y = int(total_window_in_y * PIXELS_PER_INCH)
 
-field_center_px_x = int( total_window_px_x/ 2)
+field_center_px_x = int(total_window_px_x/ 2)
 field_center_px_y = int(total_window_px_y / 2)
-
-
-
-def is_valid_contour(contour, area, obj_name: str = "") -> bool:
-    '''
-    TODO! check if the contour is valid based on area, circularity, etc
-    '''
-
-    return True
-
-
-
-
-def get_detections_from_frame(frame: np.ndarray) -> list[Detection]:
-    "from the input frame, search for the objects as specified in the run_settings.py search_list"
-    "this file DOES NOT convert the camera view to the global positions, just returns a list of what it sees in pixels"
-
-    detect_list = []
-
-    
-    for object_dict in search_for_list:
-
-        # load the necessary info from the reference list
-        path_to_hsv = object_dict["path_to_hsv"]
-        obj_name = object_dict["name"]
-        lower, upper = load_hsv_bounds(path_to_hsv)
-
-        # convert to hsv for processing
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        # create a mask using the hsv values
-        mask = cv2.inRange(hsv, lower, upper)
-
-        # get the contours from the mask
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # if there is no contour, this object has not been detected, go to next object
-        if best_contour is None:
-            continue
-
-        # if there IS a contour, we want to know how large it is and where it is
-        best_contour, best_area = get_best_contour(contours, object_dict)
-
-        # if the contour is no good, skip it
-        if is_valid_contour(
-            contour= best_contour, 
-            obj_name=obj_name,
-            area= best_area) == False:
-            continue
-
-        # okay, so at this point we have decided that the contour is useful. Let's package and ship it!
-        this_detect = Detection()
-        this_detect.obj_name = object_dict["name"]
-
-        # analyze either as a circle or rectangle
-        if object_dict["shape"] == CIRCLE:
-            (x, y), radius = cv2.minEnclosingCircle(best_contour)
-            center_point = Point(x,y)
-            this_detect.object_center_px = center_point
-            this_detect.object_width_px = int(radius*2)
-
-            
-        elif object_dict["shape"] == RECT:
-            left_x, top_y, width, height = cv2.boundingRect(best_contour)
-
-            x_center = int(left_x + width/2)
-            y_center = int(top_y + height/2)
-            center_point = Point(x=x_center, y=y_center)
-            this_detect.object_center_px = center_point
-            this_detect.object_width_px = width
-
-        detect_list.append(this_detect)
-
-    return detect_list
-
-
-def get_detection_global_pos(this_detect: Detection, robot: OurRobot) -> Detection:
-
-    def calc_angle_rad_from_point(point: Point) -> float:
-        
-        """Return the horizontal angle from straight ahead, in radians.
-
-        Args:
-            pixel_x: Object's horizontal coordinate in the image.
-            focal_length_x: Camera's horizontal focal length in pixels.
-            center_x: Camera's horizontal principal point in pixels.
-
-        Returns:
-            Signed angle: negative to the left, positive to the right.
-        """
-        pixel_x = point.x
-        delta_x = pixel_x - SCREEN_CENTER_X
-
-        return math.atan2(delta_x, FOCAL_LENGTH) * -1
-
-    def calc_distance_from_bot():
-        known_width = search_for_list[this_detect.name][KNOWN_WIDTH_IN]
-        percieved_width = this_detect.width_px
-        Z = (known_width * FOCAL_LENGTH) / percieved_width
-
-        this_detect.range = Z
-
-
-
-    def convert_pos_and_ang_to_robot_in() -> Detection:
-
-        # get the detection's global position in inches
-        object_x = robot.position_in.x + this_detect.range * math.cos(this_detect.azimuth_rad + robot.azimuth_rad)
-
-        object_y = robot.position_in.y + this_detect.range * math.sin(this_detect.azimuth_rad + robot.azimuth_rad)
-        
-        this_detect.pos_global_in = Point(object_x, object_y)
-
-        return this_detect
-
-    
-    # get the range and azimuth from the robot
-    this_detect.range = calc_distance_from_bot()
-    this_detect.azimuth_rad = calc_angle_rad_from_point()
-
-    # convert to the global position in inches
-    this_detect.pos_global_in = convert_pos_and_ang_to_robot_in()
-
-    this_detect.pos_global_px = TODO!!!
-    
-
-    return this_detect
-
 
 
 
@@ -311,9 +183,6 @@ def calc_distance(known: float, percieved: float) -> float:
     Z = (D * f) / d
 
     return Z
-
-
-
 
 
 def get_current_time() -> str:

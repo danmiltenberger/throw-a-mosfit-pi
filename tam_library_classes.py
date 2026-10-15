@@ -1,4 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
+from tam_library_colors import YELLOW
+import numpy as np
+
 
 
 
@@ -9,6 +13,10 @@ class Point:
 
     x: float
     y: float
+
+    # def __str__(self) -> str:
+    #     return_str = f"x: {self.x}, y: {self.y}"
+    #     return return_str
 
   
 
@@ -25,23 +33,41 @@ class Rectangle:
 
 @dataclass 
 class OurRobot:
-    position_in : Point
-    azimuth_rad : float
+    position_in : Point = field(default_factory=lambda: Point(0.0, -60))
+    azimuth_rad : float = -np.pi/2
+
+    position_px : Point = field(default_factory=lambda: Point(0.0, 0))
+
+    color = YELLOW
+    width_in = 14
 
 
 @dataclass
 class Detection:
-    """structure that describes the object in the frame"""
+    """Structure that describes the object in the frame."""
 
-    # from the camera
-    name = str
-    width_px = int
-    center_px = Point
+    # From the camera
+    name: str = "no name"
+    width_px: int = 0
+    center_px: Point = field(default_factory=lambda: Point(0.0, 0.0))
+    area : int = 0
 
-    # updated with inch range and angle
-    range = float
-    azimuth_rad = float
+    # Updated with inch range and angle
+    range: float = 0
+    azimuth_rad: float = 0
 
-    # update to a global position
-    pos_global_in = Point
-    pos_global_px = Point
+    # Updated to a global position
+    pos_global_in: Point = field(default_factory=lambda: Point(0.0, 0.0))
+    pos_global_px: Point = field(default_factory=lambda: Point(0.0, 0.0))
+
+    def __str__(self) -> str:
+        return (
+            f"Detection({self.name!r}, "
+            f"width_px={self.width_px}, "
+            f"area={self.area}, "
+           # f"center_px={self.center_px}, "
+            f"range={self.range:.2f} in, "
+            #f"azimuth={self.azimuth_rad:.3f} rad, "
+            #f"pos_global_in={self.pos_global_in}, "
+            #f"pos_global_px={self.pos_global_px})"
+        )

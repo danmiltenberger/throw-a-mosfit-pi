@@ -13,6 +13,8 @@ RECT = "RECT"
 
 USE_DRAWN_FIELD : bool = True
 
+DRAW_THICKNESS : int = 3
+
 # names for the objects. No magic strings!
 HAT_YELLOW = "hat_yellow"
 HAT_CYAN = "hat_cyan"
@@ -21,13 +23,20 @@ BALL_YELLOW = "ball_yellow"
 
 # keys
 KNOWN_WIDTH_IN = "known_width_in"
+SHAPE_TO_DRAW = "shape"
+DRAW_COLOR = "color"
+MIN_CIRCLARITY = "min_circularity"
+MIN_AREA = "min_area"
+#MIN_WIDTH = "min_width"
+
 
 ball_red: dict = {
     "name" : BALL_RED,
-    "shape" : CIRCLE,
+    "shape" : RECT,
     "path_to_hsv" : "hsv_bounds/ball_red.txt",
     KNOWN_WIDTH_IN : 7,
     "color" : RED,
+    MIN_AREA : 10E3
 }
 
 ball_yellow : dict = {
@@ -36,6 +45,7 @@ ball_yellow : dict = {
     "path_to_hsv" : "hsv_bounds/ball_yellow.txt",
     KNOWN_WIDTH_IN : 2.7,
     "color" : YELLOW,
+    MIN_AREA : 10E3
 }
 
 hat_cyan : dict = {
@@ -44,6 +54,7 @@ hat_cyan : dict = {
     "path_to_hsv" : "hsv_bounds/hat_cyan.txt",
     KNOWN_WIDTH_IN : 8,     # FIXME
     "color" : CYAN,
+    MIN_AREA : 10E3
 }
 
 hat_yellow : dict = {
@@ -52,6 +63,7 @@ hat_yellow : dict = {
     "path_to_hsv" : "hsv_bounds/hat_yellow.txt", 
     KNOWN_WIDTH_IN : 8,     # FIXME
     "color" : YELLOW,
+    MIN_AREA : 10E3
 }
 
 search_for_list = [
@@ -60,3 +72,10 @@ search_for_list = [
     hat_cyan,
     #hat_yellow,
 ]
+
+search_for_dict = {
+    BALL_RED : ball_red,
+    BALL_YELLOW : ball_yellow,
+    HAT_CYAN : hat_cyan,
+    HAT_YELLOW : hat_yellow,
+}
