@@ -1,0 +1,2 @@
+- determine the minimum area for each object when viewed diagonally across the arena, set minimum areas
+- load and save detection lists from photos and videos

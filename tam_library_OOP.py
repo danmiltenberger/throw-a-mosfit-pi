@@ -6,6 +6,7 @@ import json
 from icecream import ic
 from settings_run import search_for_dict, MIN_AREA, MIN_CIRCLARITY
 from pathlib import Path
+from datetime import datetime
 from tam_library_classes import Detection, Point, OurRobot
 from tam_library import (
     search_for_list,
@@ -23,12 +24,9 @@ from tam_library import (
     show_frames_side_by_side,
     playing_field_in_x,
     playing_field_in_y,
-    get_current_time
 )
 
 from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, USE_DRAWN_FIELD
-
-# let's update the codebase with rigorous object oriented programming
 
 
 def is_valid_contour(contour, area, object_dict: dict) -> bool:
@@ -660,10 +658,6 @@ def load_and_show_photo(example_photo: str, is_side_by_side: bool = True):
     )
 
 
-    save_path = "detections" + "/" + "tennis_ball" + ".json"
-    save_detection_to_csv(detection_list, save_path)
-    # ic(detection_list)
-
     updated_cam_frame = draw_detection_list_to_frame(
         frame=camera_frame, detect_list=detection_list
     )
@@ -684,42 +678,8 @@ def load_and_show_photo(example_photo: str, is_side_by_side: bool = True):
         show_photo_from_frame(updated_field_frame)
 
 
-def save_detection_to_csv(
-    detections: Detection | list[Detection],
-    file_path: str | Path,
-) -> None:
-    """Append a detection or list of detections as one CSV row."""
-    if isinstance(detections, Detection):
-        detections = [detections]
 
-    if not detections:
-        return
 
-    row = []
-
-    for detection in detections:
-        data = {
-            "name": detection.name,
-            "width_px": detection.width_px,
-            "screen_center_x_px": detection.screen_center_px.x,
-            "screen_center_y_px": detection.screen_center_px.y,
-            "area": detection.area,
-            "range_in": detection.range,
-            "azimuth_rad": detection.azimuth_rad,
-            "field_pos_x_in": detection.field_pos_in.x,
-            "field_pos_y_in": detection.field_pos_in.y,
-            "field_pos_x_px": detection.field_pos_px.x,
-            "field_pos_y_px": detection.field_pos_px.y,
-        }
-
-        row.append(json.dumps(data, separators=(",", ":")))
-
-    with Path(file_path).open(
-        mode="a", newline="", encoding="utf-8"
-    ) as csv_file:
-        csv.writer(csv_file).writerow(row)
-
-    print(f"saved to {file_path}")
 
 if __name__ == "__main__":
     example_photo = "training_data/tennis_ball_48in.png"

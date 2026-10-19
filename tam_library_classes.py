@@ -68,6 +68,6 @@ class Detection:
            # f"center_px={self.center_px}, "
             f"range={self.range:.2f} in, "
             f"azimuth={self.azimuth_rad:.3f} rad, "
-            f"pos_global_in={round(self.field_pos_in.x), round(self.field_pos_in.y)}, "
-            f"pos_global_px={round(self.field_pos_px.x), round(self.field_pos_px.y)})"
+            f"field_pos_in={round(self.field_pos_in.x), round(self.field_pos_in.y)}, "
+            f"field_pos_px={round(self.field_pos_px.x), round(self.field_pos_px.y)})"
         )
