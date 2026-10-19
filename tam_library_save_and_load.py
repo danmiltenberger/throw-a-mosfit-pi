@@ -120,6 +120,8 @@ def save_detections_csv(
 
         writer.writerow(row)
 
+    print(f"saved to: {path}")
+
 
 def load_detections_csv(
     filename: str | Path,
@@ -197,7 +199,6 @@ def load_detections_csv(
     return frames
 
 
-
 def clear_detections_csv(filename: str | Path) -> None:
     """Clear all CSV contents, including the header."""
     with Path(filename).open("w", newline="", encoding="utf-8"):
@@ -214,7 +215,7 @@ def example_save_detections():
         "field_pos_in.y",
     ]
 
-    file_name = "detections/example_save_detection.csv"
+    file_name = get_save_file_path()
     our_bot = OurRobot()
 
     camera_frame = load_image("training_data/tennis_ball_48in.png")
@@ -235,6 +236,13 @@ def example_save_detections():
         print(f"Frame {vid_frame}:")
         for detection in frame_detections:
             print(detection)
+
+
+def get_save_file_path(directory: str = "detections", ending : str = ".csv") -> str:
+    output_date = datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
+    file_path = directory + "/" + output_date + ending
+    return file_path
+
 
 
 if __name__ == "__main__":
