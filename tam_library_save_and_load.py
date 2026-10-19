@@ -244,6 +244,5 @@ def get_save_file_path(directory: str = "detections", ending : str = ".csv") -> 
     return file_path
 
 
-
 if __name__ == "__main__":
     example_save_detections()

@@ -78,7 +78,7 @@ field_center_px_y = int(total_window_px_y / 2)
 
 
 
-def load_image(image_path: str) -> np.ndarray:
+def load_image_as_frame(image_path: str) -> np.ndarray:
     """Load an image as a BGR NumPy array, or raise an error."""
     frame = cv2.imread(image_path, cv2.IMREAD_COLOR)
 
@@ -1563,9 +1563,9 @@ def read_video_frames(video_path: str) -> Iterator[np.ndarray]:
 def get_frame_and_field(frame: np.ndarray) -> np.ndarray:
 
     if USE_DRAWN_FIELD:
-        frame_field: np.ndarray = load_image(f"{FIELD_PNGS}/empty_field.png")
+        frame_field: np.ndarray = load_image_as_frame(f"{FIELD_PNGS}/empty_field.png")
     else:
-        frame_field: np.ndarray = load_image(f"{FIELD_PNGS}/black_field.png")
+        frame_field: np.ndarray = load_image_as_frame(f"{FIELD_PNGS}/black_field.png")
 
     combined_frame, object_list = get_side_and_top_down(
         frame,
@@ -1581,7 +1581,7 @@ def analyze_photo_or_video(file_path: str) -> None:
     if file_path.endswith(".mp4"):
         frames = read_video_frames(file_path)
     elif file_path.endswith(".png") or file_path.endswith(".jpg"):
-        frame = load_image(file_path)
+        frame = load_image_as_frame(file_path)
         combined_frame, object_list = get_frame_and_field(frame)
         cv2.imshow("frame and field", combined_frame)
         cv2.waitKey(0)

@@ -20,7 +20,7 @@ from tam_library import (
     KNOWN_WIDTH_IN,
     field_center_px_x,
     field_center_px_y,
-    load_image,
+    load_image_as_frame,
     show_frames_side_by_side,
     playing_field_in_x,
     playing_field_in_y,
@@ -493,7 +493,7 @@ def show_field(camera_frame: np.ndarray, bot: OurRobot) -> list[np.ndarray]:
         field_frame = "field_pngs/empty_field.png"
     else:
         field_frame = "field_pngs/black_field.png"
-    field_frame = load_image(field_frame)
+    field_frame = load_image_as_frame(field_frame)
 
     field_frame = draw_detection_list_to_field(
         field_frame=field_frame, detect_list=detect_list, robot=bot
@@ -611,7 +611,7 @@ def load_and_show_video(example_video: str):
     video_frames = load_video_frames(example_video)
 
     print("loading field frame")
-    field_frame = load_image("field_pngs/empty_field.png")
+    field_frame = load_image_as_frame("field_pngs/empty_field.png")
 
     print("calculating and showing output to user")
 
@@ -646,11 +646,11 @@ def load_and_show_video(example_video: str):
 
 def load_and_show_photo(example_photo: str, is_side_by_side: bool = True):
 
-    camera_frame = load_image(example_photo)
+    camera_frame = load_image_as_frame(example_photo)
     our_bot = OurRobot()
     our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
 
-    field_frame = load_image("field_pngs/empty_field.png")
+    field_frame = load_image_as_frame("field_pngs/empty_field.png")
 
     detection_list = get_detections_from_frame(
         bot=our_bot,
