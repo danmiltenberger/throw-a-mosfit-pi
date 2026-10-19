@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
 import math
+import csv
+import json
 from icecream import ic
-from settings_view import SHOW_ARROWS
-from settings_run import search_for_dict, MIN_AREA, MIN_CIRCLARITY, BALL_RED
+from settings_run import search_for_dict, MIN_AREA, MIN_CIRCLARITY
 from pathlib import Path
 from tam_library_classes import Detection, Point, OurRobot
-from tam_library_colors import BLUE, WHITE
 from tam_library import (
     search_for_list,
     load_hsv_bounds,
@@ -14,16 +14,16 @@ from tam_library import (
     CIRCLE,
     RECT,
     SCREEN_CENTER_X,
-    SCREEN_CENTER_Y,
     FOCAL_LENGTH,
     convert_to_px,
     KNOWN_WIDTH_IN,
     field_center_px_x,
     field_center_px_y,
-    draw_labeled_arrow,
     load_image,
     show_frames_side_by_side,
-    
+    playing_field_in_x,
+    playing_field_in_y,
+    get_current_time
 )
 
 from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, USE_DRAWN_FIELD
@@ -57,7 +57,6 @@ def is_valid_contour(contour, area, object_dict: dict) -> bool:
 
 def get_detections_from_frame(frame: np.ndarray, bot: OurRobot) -> list[Detection]:
     "from the input frame, search for the objects as specified in the run_settings.py search_list"
-    "this file DOES NOT convert the camera view to the global positions, just returns a list of what it sees in pixels"
 
     detect_list = []
     frame = frame.copy()
@@ -120,13 +119,17 @@ def get_detections_from_frame(frame: np.ndarray, bot: OurRobot) -> list[Detectio
 
         # determine the distance and angle relative to the camera
         this_detect.range = calc_distance_from_bot(this_detect)
-        this_detect.azimuth_rad = calc_angle_from_screen_center(this_detect.screen_center_px)
+        this_detect.azimuth_rad = calc_angle_from_screen_center(
+            this_detect.screen_center_px
+        )
 
         # convert to the field xy system in inches
         this_detect.field_pos_in = convert_pos_and_ang_to_robot_in(this_detect, bot)
 
         # convert the field inches to the window pixels
-        this_detect.field_pos_px = convert_to_field_pixels_global(this_detect.field_pos_in)
+        this_detect.field_pos_px = convert_to_field_pixels_global(
+            this_detect.field_pos_in
+        )
 
         detect_list.append(this_detect)
 
@@ -174,16 +177,30 @@ def calc_angle_from_screen_center(point: Point) -> float:
 def draw_detection_list_to_frame(
     frame: np.ndarray, detect_list: list[Detection]
 ) -> np.ndarray:
-    for detection in detect_list:
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.5
+    text_thickness = 1
+    label_gap_px = 8
 
+    frame_height, frame_width = frame.shape[:2]
+
+    for detection in detect_list:
+        # Quick lookup values
         shape = search_for_dict[detection.name][SHAPE_TO_DRAW]
         color = search_for_dict[detection.name][DRAW_COLOR]
 
+        # Values specific to this detection
         shape_center_x = detection.screen_center_px.x
         shape_center_y = detection.screen_center_px.y
         shape_center = (int(shape_center_x), int(shape_center_y))
 
-        # draw a small dot at the center
+        range_to_object = detection.range
+        azimuth_deg = np.degrees(detection.azimuth_rad)
+
+        # Default top edge for label placement
+        shape_top_y = shape_center[1] - int(detection.width_px / 2)
+
+        # Draw a small dot at the center
         frame = cv2.circle(
             img=frame,
             center=shape_center,
@@ -192,45 +209,96 @@ def draw_detection_list_to_frame(
             thickness=-1,
         )
 
-        # draw a circle around the object
+        # Draw a circle around the object
         if shape == CIRCLE:
             radius = int(detection.width_px / 2)
             frame = cv2.circle(
                 img=frame,
-                radius=int(radius),
+                radius=radius,
                 center=shape_center,
                 color=color,
                 thickness=DRAW_THICKNESS,
             )
 
-        # or draw a square
+        # Or draw a square
         elif shape == RECT:
-
             frame = draw_centered_rectangle(
                 frame=frame,
                 color=color,
                 width_px=detection.width_px,
                 height_px=detection.width_px,
-                center=detection.center_px,
+                center=shape_center,
             )
+
+        # Draw a label above the object
+        # Use "deg" rather than a degree symbol for OpenCV font compatibility.
+        label = f"Range: {range_to_object:.2f} in | " f"Azim: {azimuth_deg:.1f} deg"
+
+        (text_width, text_height), baseline = cv2.getTextSize(
+            label,
+            font,
+            font_scale,
+            text_thickness,
+        )
+
+        # putText uses the bottom-left corner of the text as its origin.
+        label_x = shape_center[0] - text_width // 2
+        label_y = shape_top_y - label_gap_px - baseline
+
+        # Keep the label within the frame where possible.
+        label_x = max(0, min(label_x, frame_width - text_width - 1))
+        label_y = max(
+            text_height,
+            min(label_y, frame_height - baseline - 1),
+        )
+
+        frame = cv2.putText(
+            img=frame,
+            text=label,
+            org=(label_x, label_y),
+            fontFace=font,
+            fontScale=font_scale,
+            color=color,
+            thickness=text_thickness,
+            lineType=cv2.LINE_AA,
+        )
 
     return frame
 
 
 def draw_detection_list_to_field(
-    field_frame: np.ndarray, detect_list: list[Detection], robot: OurRobot
+    field_frame: np.ndarray,
+    detect_list: list[Detection],
 ) -> np.ndarray:
+
+    def keep_on_field():
+        playing_field_px_x = convert_to_px(playing_field_in_x)
+        playing_field_px_y = convert_to_px(playing_field_in_y)
+        if detection.field_pos_px.x > playing_field_px_x:
+            detection.field_pos_px.x = playing_field_px_x
+
+        if detection.field_pos_px.y > playing_field_px_y:
+            detection.field_pos_px.y = playing_field_px_y
+
     for detection in detect_list:
         draw_shape = search_for_dict[detection.name][SHAPE_TO_DRAW]
         draw_color = search_for_dict[detection.name][DRAW_COLOR]
         known_width_in = search_for_dict[detection.name][KNOWN_WIDTH_IN]
         known_width_px = convert_to_px(known_width_in)
 
+        keep_on_field()
+
+        ic(draw_shape, draw_color, detection.field_pos_px)
+
+        cv_format_center = (
+            int(detection.field_pos_px.x),
+            int(detection.field_pos_px.y),
+        )
 
         if draw_shape == CIRCLE:
             cv2.circle(
                 img=field_frame,
-                center=(int(detection.field_pos_px.x), int(detection.field_pos_px.y)),
+                center=cv_format_center,
                 color=draw_color,
                 radius=int(known_width_px / 2),
                 thickness=DRAW_THICKNESS,
@@ -355,141 +423,15 @@ def draw_robot_to_field(field_frame: np.ndarray, bot: OurRobot) -> np.ndarray:
     return field_frame
 
 
-def _draw_rotated_label(
-    frame,
-    text: str,
-    center,
-    angle_rad: float,
-    color=(0, 255, 0),
-    font_scale: float = 0.5,
-    thickness: int = 1,
-    padding: int = 4,
-):
-    """Draw text rotated to align with `angle_rad`.
-
-    For an arrow pointing straight up, the text reads top-to-bottom,
-    like the spine of a book.
-    """
-    if not text:
-        return frame
-
-    text = str(text)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    # Render the text once on a temporary image to measure it.
-    # This avoids OpenCV 5's changed getTextSize() API.
-    temp = np.zeros((200, 600, 3), dtype=np.uint8)
-    temp_org = (20, 100)
-
-    cv2.putText(
-        temp,
-        text,
-        temp_org,
-        font,
-        font_scale,
-        (255, 255, 255),
-        thickness,
-        cv2.LINE_AA,
-    )
-
-    ys, xs = np.nonzero(temp[:, :, 0])
-    if len(xs) == 0 or len(ys) == 0:
-        return frame
-
-    text_w = int(xs.max() - xs.min() + 1)
-    text_h = int(ys.max() - ys.min() + 1)
-
-    # Create a tight transparent canvas containing only the text.
-    canvas_w = text_w + 2 * padding
-    canvas_h = text_h + 2 * padding
-
-    text_img = np.zeros((canvas_h, canvas_w, 4), dtype=np.uint8)
-
-    cv2.putText(
-        text_img,
-        text,
-        (padding, padding + text_h),
-        font,
-        font_scale,
-        (255, 255, 255, 255),
-        thickness,
-        cv2.LINE_AA,
-    )
-
-    # Rotate the text canvas.
-    # A straight-up arrow has angle_rad = -pi/2 in image coordinates.
-    # Adding 90 degrees makes the label read top-to-bottom, like a book spine.
-    text_angle_deg = math.degrees(angle_rad) + 90.0
-
-    rotation_matrix = cv2.getRotationMatrix2D(
-        (canvas_w / 2.0, canvas_h / 2.0),
-        text_angle_deg,
-        1.0,
-    )
-
-    # Make the output canvas large enough to contain the rotated text.
-    diag = int(math.ceil(math.hypot(canvas_w, canvas_h)))
-    rotated = cv2.warpAffine(
-        text_img,
-        rotation_matrix,
-        (diag, diag),
-        flags=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
-    )
-
-    # Position the rotated label centered at the requested point.
-    cx, cy = int(round(center[0])), int(round(center[1]))
-    x0 = cx - diag // 2
-    y0 = cy - diag // 2
-    x1 = x0 + diag
-    y1 = y0 + diag
-
-    # Clip the label to the frame boundaries.
-    frame_h, frame_w = frame.shape[:2]
-
-    src_x0 = max(0, -x0)
-    src_y0 = max(0, -y0)
-    src_x1 = diag - max(0, x1 - frame_w)
-    src_y1 = diag - max(0, y1 - frame_h)
-
-    x0 = max(0, x0)
-    y0 = max(0, y0)
-    x1 = min(frame_w, x1)
-    y1 = min(frame_h, y1)
-
-    if x1 <= x0 or y1 <= y0:
-        return frame
-
-    roi = frame[y0:y1, x0:x1]
-    label_roi = rotated[src_y0:src_y1, src_x0:src_x1]
-
-    # Alpha-blend the rotated label onto the frame.
-    alpha = label_roi[:, :, 3:4].astype(float) / 255.0
-    label_bgr = label_roi[:, :, :3].astype(float)
-
-    # Convert the white rendered text to the requested BGR color.
-    label_bgr[..., 0] *= color[0] / 255.0
-    label_bgr[..., 1] *= color[1] / 255.0
-    label_bgr[..., 2] *= color[2] / 255.0
-
-    frame[y0:y1, x0:x1] = (
-        alpha * label_bgr + (1.0 - alpha) * roi.astype(float)
-    ).astype(frame.dtype)
-
-    return frame
-
-
 def draw_arrow(
     frame,
     start: Point,
     distance: float | None = None,
     angle_rad: float | None = None,
     end: Point | None = None,
-    label: str | None = None,
     color=(0, 255, 0),
     thickness: int = 2,
     tip_size: int = 10,
-    label_offset_px: int = 12,
 ):
     """Draw an arrow from `start`, optionally with a rotated label.
 
@@ -503,12 +445,10 @@ def draw_arrow(
         distance: Arrow length in pixels.
         angle_rad: Direction angle in radians, using image coordinates.
         end: Optional Point defining the arrow tip.
-        label: Optional text drawn beside the arrow.
         color: BGR color.
         thickness: Line thickness.
         tip_size: Arrowhead size in pixels.
-        label_offset_px: Perpendicular distance from the arrow spine
-            to the center of the label.
+
 
     Returns:
         The modified frame.
@@ -539,25 +479,6 @@ def draw_arrow(
         tipLength=max(0.03, tip_size / max(1.0, math.hypot(ex - sx, ey - sy))),
     )
 
-    if label:
-        # Midpoint of the arrow
-        mx = (sx + ex) / 2.0
-        my = (sy + ey) / 2.0
-
-        # Perpendicular offset: rotate arrow direction by +90 degrees
-        offset_x = -math.sin(angle_rad) * label_offset_px
-        offset_y = math.cos(angle_rad) * label_offset_px
-
-        label_center = (mx + offset_x, my + offset_y)
-
-        frame = _draw_rotated_label(
-            frame=frame,
-            text=label,
-            center=label_center,
-            angle_rad=angle_rad,
-            color=color,
-        )
-
     return frame
 
 
@@ -577,17 +498,16 @@ def show_field(camera_frame: np.ndarray, bot: OurRobot) -> list[np.ndarray]:
     field_frame = load_image(field_frame)
 
     field_frame = draw_detection_list_to_field(
-        field_frame=field_frame, detect_list=detect_list, robot=our_bot
+        field_frame=field_frame, detect_list=detect_list, robot=bot
     )
 
-    field_frame = draw_robot_to_field(field_frame=field_frame, bot=our_bot)
-
+    field_frame = draw_robot_to_field(field_frame=field_frame, bot=bot)
 
     combined_frame = show_frames_side_by_side(camera_frame, field_frame)
 
     output_frames_list.append(combined_frame)
     return output_frames_list
- 
+
 
 def load_video_frames(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -662,7 +582,7 @@ def save_frames_as_video(
     return output_path
 
 
-def show_video(frames, window_name="Video", fps=30, wait_key=1):
+def show_video_from_list_of_frames(frames, window_name="Video", fps=30, wait_key=1):
     if not frames:
         raise ValueError("No frames to display.")
 
@@ -678,26 +598,131 @@ def show_video(frames, window_name="Video", fps=30, wait_key=1):
     cv2.destroyAllWindows()
 
 
+def show_photo_from_frame(frame: np.ndarray, window_name="Default"):
+
+    cv2.imshow(window_name, mat=frame)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
-if __name__ == "__main__":
-    example_photo = "training_data/2026-10-11T20_53_06.567733.png"
-    example_video = "training_data/tennis_ball_with_corners.mp4"
-
+def load_and_show_video(example_video: str):
     our_bot = OurRobot()
     our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
 
     print("loading video frames")
     video_frames = load_video_frames(example_video)
 
+    print("loading field frame")
+    field_frame = load_image("field_pngs/empty_field.png")
+
     print("calculating and showing output to user")
 
     field_list_of_frames = []
 
-    for frame in video_frames:
-        output_list = show_field(frame, our_bot)
-        field_list_of_frames.append(output_list[0])
-        
+    for camera_frame in video_frames:
 
-    show_video(field_list_of_frames)
-    
+        detection_list = get_detections_from_frame(
+            bot=our_bot,
+            frame=camera_frame,
+        )
+        # ic(detection_list)
+
+        updated_cam_frame = draw_detection_list_to_frame(
+            frame=camera_frame, detect_list=detection_list
+        )
+
+        updated_field_frame = draw_robot_to_field(field_frame=field_frame, bot=our_bot)
+        updated_field_frame = draw_detection_list_to_field(
+            field_frame=field_frame, detect_list=detection_list, robot=our_bot
+        )
+
+        side_by_side_frame = show_frames_side_by_side(
+            updated_cam_frame, updated_field_frame
+        )
+
+        field_list_of_frames.append(side_by_side_frame)
+
+    print("preparing to show video")
+    show_video_from_list_of_frames(field_list_of_frames)
+
+
+def load_and_show_photo(example_photo: str, is_side_by_side: bool = True):
+
+    camera_frame = load_image(example_photo)
+    our_bot = OurRobot()
+    our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
+
+    field_frame = load_image("field_pngs/empty_field.png")
+
+    detection_list = get_detections_from_frame(
+        bot=our_bot,
+        frame=camera_frame,
+    )
+
+
+    save_path = "detections" + "/" + "tennis_ball" + ".json"
+    save_detection_to_csv(detection_list, save_path)
+    # ic(detection_list)
+
+    updated_cam_frame = draw_detection_list_to_frame(
+        frame=camera_frame, detect_list=detection_list
+    )
+
+    updated_field_frame = draw_robot_to_field(field_frame=field_frame, bot=our_bot)
+    updated_field_frame = draw_detection_list_to_field(
+        field_frame=field_frame, detect_list=detection_list
+    )
+
+    if is_side_by_side:
+        side_by_side_frame = show_frames_side_by_side(
+            updated_cam_frame, updated_field_frame
+        )
+
+        show_photo_from_frame(side_by_side_frame)
+
+    else:
+        show_photo_from_frame(updated_field_frame)
+
+
+def save_detection_to_csv(
+    detections: Detection | list[Detection],
+    file_path: str | Path,
+) -> None:
+    """Append a detection or list of detections as one CSV row."""
+    if isinstance(detections, Detection):
+        detections = [detections]
+
+    if not detections:
+        return
+
+    row = []
+
+    for detection in detections:
+        data = {
+            "name": detection.name,
+            "width_px": detection.width_px,
+            "screen_center_x_px": detection.screen_center_px.x,
+            "screen_center_y_px": detection.screen_center_px.y,
+            "area": detection.area,
+            "range_in": detection.range,
+            "azimuth_rad": detection.azimuth_rad,
+            "field_pos_x_in": detection.field_pos_in.x,
+            "field_pos_y_in": detection.field_pos_in.y,
+            "field_pos_x_px": detection.field_pos_px.x,
+            "field_pos_y_px": detection.field_pos_px.y,
+        }
+
+        row.append(json.dumps(data, separators=(",", ":")))
+
+    with Path(file_path).open(
+        mode="a", newline="", encoding="utf-8"
+    ) as csv_file:
+        csv.writer(csv_file).writerow(row)
+
+    print(f"saved to {file_path}")
+
+if __name__ == "__main__":
+    example_photo = "training_data/tennis_ball_48in.png"
+
+
+    load_and_show_photo(example_photo, is_side_by_side=False)

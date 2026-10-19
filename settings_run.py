@@ -70,7 +70,7 @@ search_for_list = [
     ball_red,
     ball_yellow,
     hat_cyan,
-    hat_yellow,
+    #hat_yellow,
 ]
 
 search_for_dict = {
