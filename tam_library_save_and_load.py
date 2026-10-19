@@ -7,7 +7,7 @@ import csv
 import json
 from pathlib import Path
 from typing import Sequence
-from tam_library_OOP import get_detections_from_frame, load_image
+from tam_library_OOP import get_detections_from_frame, load_image_as_frame
 from icecream import ic
 
 
@@ -218,7 +218,7 @@ def example_save_detections():
     file_name = get_save_file_path()
     our_bot = OurRobot()
 
-    camera_frame = load_image("training_data/tennis_ball_48in.png")
+    camera_frame = load_image_as_frame("training_data/tennis_ball_48in.png")
     list_detections = get_detections_from_frame(frame=camera_frame, bot=our_bot)
 
     # for clearer development
@@ -242,6 +242,29 @@ def get_save_file_path(directory: str = "detections", ending : str = ".csv") -> 
     output_date = datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
     file_path = directory + "/" + output_date + ending
     return file_path
+
+
+
+def get_or_create_directory(directory: str | Path) -> Path:
+    """
+    Create a directory if needed and return its absolute path.
+
+    Missing parent directories are also created.
+    Existing directories and their contents are left unchanged.
+
+    Args:
+        directory: Directory path as a string or Path object.
+
+    Returns:
+        Absolute Path object for the directory.
+
+    Raises:
+        FileExistsError: If the target path exists as a file.
+        OSError: If creation fails, such as due to insufficient permissions.
+    """
+    path = Path(directory).expanduser().resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 if __name__ == "__main__":

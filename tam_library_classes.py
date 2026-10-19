@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Optional
-from tam_library_colors import YELLOW
+from tam_library_colors import YELLOW, CYAN
 import numpy as np
 
-
+# measure ccw from positive x (3oclock)
+RADIANS_NORTH = np.pi/2
+RADIANS_SOUTH_EAST = -np.pi/4
+RADIANS_NORTH_EAST = np.pi/4
 
 
 
@@ -34,12 +37,14 @@ class Rectangle:
 @dataclass 
 class OurRobot:
     field_pos_in : Point = field(default_factory=lambda: Point(0.0, -60))
-    azimuth_rad : float = -np.pi/2
+    azimuth_rad : float = RADIANS_NORTH
 
     field_pos_px : Point = field(default_factory=lambda: Point(0.0, 0))
 
-    color = YELLOW
+    color = CYAN
     width_in = 14
+
+    label : str = "our bot"
 
 
 @dataclass

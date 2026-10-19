@@ -1,12 +1,9 @@
 from picamera2 import Picamera2 # type: ignore
 import time
 import cv2
-from get_objects_from_frame import SCREEN_PX_X, SCREEN_PX_Y
 import sys
-from pathlib import Path
-from display import show_frames_side_by_side, get_side_and_top_down
-from convert_front_to_top_down import draw_object_list_to_field
-from python_leader import send_text_i2c
+from settings_run import CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y, USE_DRAWN_FIELD
+from tam_library_OOP import get_side_by_side_frame
 
 
 def main():
@@ -16,14 +13,16 @@ def main():
     # Configure for OpenCV: RGB888 format prevents BGR/RGB confusion
     # 640x480 keeps CPU load low for real-time edge detection on Pi 5
     config = picam2.create_preview_configuration(
-        main={'format': 'RGB888', 'size': (SCREEN_PX_X, SCREEN_PX_Y)}
+        main={'format': 'RGB888', 'size': (CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y)}
     )
     picam2.configure(config)
 
 
-    frame_black_field = cv2.imread("black_field.png")
-    frame_empty_field = cv2.imread("empty_field.png")
-    
+    if USE_DRAWN_FIELD:
+        field_frame = cv2.imread("black_field.png")
+    else:
+        field_frame = cv2.imread("empty_field.png")
+        
     try:
         picam2.start()
         # Allow the AGC (Automatic Gain Control) to settle
@@ -32,19 +31,14 @@ def main():
         print("Camera started. Press 'q' in the OpenCV window to quit.")
         
         while True:
-            # capture_array() returns a NumPy array directly
-            frame_camera = picam2.capture_array()
+            camera_frame = picam2.capture_array()
             
-            if frame_camera is None:
+            if camera_frame is None:
                 raise ValueError('Received empty frame buffer from libcamera.')
 
-            combined_frame, object_list = get_side_and_top_down(frame_camera, frame_black_field)
-            cv2.imshow('frame and field', combined_frame)
+            side_by_side_frame = get_side_by_side_frame(camera_frame, field_frame)
 
-            for obj in object_list:
-                name = obj["name"]
-
-                send_text_i2c(name)
+            cv2.imshow(side_by_side_frame)
             
 
             # Break loop on 'q' key press
@@ -61,29 +55,6 @@ def main():
         picam2.stop()
         cv2.destroyAllWindows()
 
-
-
-
-def get_or_create_directory(directory: str | Path) -> Path:
-    """
-    Create a directory if needed and return its absolute path.
-
-    Missing parent directories are also created.
-    Existing directories and their contents are left unchanged.
-
-    Args:
-        directory: Directory path as a string or Path object.
-
-    Returns:
-        Absolute Path object for the directory.
-
-    Raises:
-        FileExistsError: If the target path exists as a file.
-        OSError: If creation fails, such as due to insufficient permissions.
-    """
-    path = Path(directory).expanduser().resolve()
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 if __name__ == '__main__':
     main()

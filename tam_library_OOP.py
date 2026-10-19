@@ -141,8 +141,8 @@ def convert_pos_and_ang_to_robot_in(this_detect: Detection, robot: OurRobot) -> 
         this_detect.azimuth_rad + robot.azimuth_rad
     )
 
-    object_y = float(robot.field_pos_in.y) + float(this_detect.range) * math.sin(
-        float(this_detect.azimuth_rad) + float(robot.azimuth_rad)
+    object_y = robot.field_pos_in.y + this_detect.range * math.sin(
+        this_detect.azimuth_rad + robot.azimuth_rad
     )
 
     return Point(object_x, object_y)
@@ -169,7 +169,7 @@ def calc_angle_from_screen_center(point: Point) -> float:
     pixel_x = point.x
     delta_x = pixel_x - SCREEN_CENTER_X
 
-    return math.atan2(delta_x, FOCAL_LENGTH)
+    return -math.atan2(delta_x, FOCAL_LENGTH)
 
 
 def draw_detection_list_to_frame(
@@ -220,17 +220,21 @@ def draw_detection_list_to_frame(
 
         # Or draw a square
         elif shape == RECT:
-            frame = draw_centered_rectangle(
+            frame = draw_rectangle(
                 frame=frame,
                 color=color,
-                width_px=detection.width_px,
-                height_px=detection.width_px,
+                width=detection.width_px,
+                height=detection.width_px,
                 center=shape_center,
+                label=detection.name,
             )
 
         # Draw a label above the object
         # Use "deg" rather than a degree symbol for OpenCV font compatibility.
-        label = f"Range: {range_to_object:.2f} in | " f"Azim: {azimuth_deg:.1f} deg"
+        label = (
+            f"Range: {range_to_object:.2f} in | "
+            f"Azim: {azimuth_deg:.1f} deg | Point: {detection.field_pos_in}"
+        )
 
         (text_width, text_height), baseline = cv2.getTextSize(
             label,
@@ -267,7 +271,14 @@ def draw_detection_list_to_frame(
 def draw_detection_list_to_field(
     field_frame: np.ndarray,
     detect_list: list[Detection],
+    bot: OurRobot,
+    is_keep_on_field: bool = False,
 ) -> np.ndarray:
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.5
+    text_thickness = 1
+    label_gap_px = 8
 
     def keep_on_field():
         playing_field_px_x = convert_to_px(playing_field_in_x)
@@ -284,9 +295,10 @@ def draw_detection_list_to_field(
         known_width_in = search_for_dict[detection.name][KNOWN_WIDTH_IN]
         known_width_px = convert_to_px(known_width_in)
 
-        keep_on_field()
+        if is_keep_on_field:
+            keep_on_field()
 
-        ic(draw_shape, draw_color, detection.field_pos_px)
+        #ic(draw_shape, draw_color, detection.field_pos_px)
 
         cv_format_center = (
             int(detection.field_pos_px.x),
@@ -303,74 +315,67 @@ def draw_detection_list_to_field(
             )
 
         elif draw_shape == RECT:
-            field_frame = draw_centered_rectangle(
+            field_frame = draw_rectangle(
                 frame=field_frame,
                 color=draw_color,
-                width_px=detection.width_px,
-                height_px=detection.width_px,
+                width=detection.width_px,
+                height=detection.width_px,
                 center=detection.field_pos_px,
             )
 
+        # Draw a label
+        # Use "deg" rather than a degree symbol for OpenCV font compatibility.
+        range_to_object = round(detection.range)
+        azimuth_deg = math.degrees(detection.azimuth_rad)
+
+        label = (
+            f"Range: {range_to_object:.2f} in |"
+            + f"Azim: {azimuth_deg:.1f} deg |"
+            + f"Point:{round(detection.field_pos_in.x,2)}, {round(detection.field_pos_in.y,2)}"
+        )
+
+        (text_width, text_height), baseline = cv2.getTextSize(
+            label,
+            font,
+            font_scale,
+            text_thickness,
+        )
+
+        # putText uses the bottom-left corner of the text as its origin.
+        shape_top_y = cv_format_center[1]
+        label_x = cv_format_center[0] - text_width // 2
+        label_y = shape_top_y - label_gap_px - baseline
+
+        frame_width = convert_to_px(playing_field_in_x)
+        frame_height = convert_to_px(playing_field_in_y)
+
+        # Keep the label within the frame where possible.
+        label_x = max(0, min(label_x, frame_width - text_width - 1))
+        label_y = max(
+            text_height,
+            min(label_y, frame_height - baseline - 1),
+        )
+
+        field_frame = cv2.putText(
+            img=field_frame,
+            text=label,
+            org=(label_x, label_y),
+            fontFace=font,
+            fontScale=font_scale,
+            color=draw_color,
+            thickness=text_thickness,
+            lineType=cv2.LINE_AA,
+        )
+
+        # draw an arrow from the bot camera to the object center
+        draw_arrow(
+            frame=field_frame,
+            start=bot.field_pos_px,
+            end=detection.field_pos_px,
+            color=draw_color,
+        )
+
     return field_frame
-
-
-def draw_centered_rectangle(
-    frame,
-    center,
-    width_px: int,
-    height_px: int,
-    angle_rad: float = 0.0,
-    color=(0, 255, 0),
-    thickness: int = 2,
-):
-    """Draw a rectangle centered at `center`, optionally rotated.
-
-    Args:
-        frame: BGR image to draw on.
-        center: Point with `.x` and `.y`, or an `(x, y)` tuple/list.
-        width_px: Rectangle width in pixels.
-        height_px: Rectangle height in pixels.
-        angle_rad: Rotation angle in radians. Positive angles rotate
-            clockwise in OpenCV image coordinates.
-        color: BGR color.
-        thickness: Line thickness; use -1 for a filled rectangle.
-
-    Returns:
-        The modified frame.
-    """
-    if hasattr(center, "x") and hasattr(center, "y"):
-        cx, cy = float(center.x), float(center.y)
-    else:
-        cx, cy = float(center[0]), float(center[1])
-
-    # Unrotated corners relative to the center
-    half_w = width_px / 2.0
-    half_h = height_px / 2.0
-
-    corners = [
-        (-half_w, -half_h),
-        (half_w, -half_h),
-        (half_w, half_h),
-        (-half_w, half_h),
-    ]
-
-    cos_a = math.cos(angle_rad)
-    sin_a = math.sin(angle_rad)
-
-    rotated = []
-    for dx, dy in corners:
-        x = cx + dx * cos_a - dy * sin_a
-        y = cy + dx * sin_a + dy * cos_a
-        rotated.append((int(round(x)), int(round(y))))
-
-    pts = np.array(rotated, dtype=np.int32)
-
-    if thickness == -1:
-        cv2.fillPoly(frame, [pts], color)
-    else:
-        cv2.polylines(frame, [pts], isClosed=True, color=color, thickness=thickness)
-
-    return frame
 
 
 def convert_to_field_pixels_global(field_point_inches: Point) -> Point:
@@ -400,22 +405,13 @@ def draw_robot_to_field(field_frame: np.ndarray, bot: OurRobot) -> np.ndarray:
     bot_width_px = convert_to_px(bot.width_in)
 
     # draw a bounding rectangle
-    field_frame = draw_centered_rectangle(
-        width_px=bot_width_px,
-        height_px=bot_width_px,
+    field_frame = draw_rectangle(
         frame=field_frame,
-        color=bot.color,
+        angle_radians=bot.azimuth_rad,
         center=bot.field_pos_px,
-        angle_rad=bot.azimuth_rad,
-    )
-
-    # draw an arrow showing which direction the bot is facing
-    field_frame = draw_arrow(
-        frame=field_frame,
-        start=bot.field_pos_px,
         color=bot.color,
-        angle_rad=bot.azimuth_rad,
-        distance=bot_width_px * 2,
+        height=bot_width_px,
+        width=bot_width_px,
     )
 
     return field_frame
@@ -476,6 +472,143 @@ def draw_arrow(
         thickness=thickness,
         tipLength=max(0.03, tip_size / max(1.0, math.hypot(ex - sx, ey - sy))),
     )
+
+    return frame
+
+
+def draw_rectangle(
+    frame: np.ndarray,
+    center: Point,
+    width: int,
+    height: int,
+    angle_radians=0.0,
+    label=None,
+    color=(0, 255, 0),
+    thickness=2,
+    label_gap=10,
+    font_scale=0.6,
+    text_thickness=1,
+    show_arrow: bool = True,
+):
+    """
+    Draw a rotated rectangle, optional horizontal label, and direction arrow.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        OpenCV image, modified in place.
+    centerpoint : tuple[float, float]
+        Rectangle center (x, y), in image pixels.
+    width, height : float
+        Rectangle dimensions in pixels. At angle=0, width is horizontal
+        and height is vertical.
+    angle_radians : float, optional
+        Counterclockwise rotation from the positive x-axis.
+        0 points right; pi/2 points up.
+    label : str or None, optional
+        Unrotated text placed to the right of the rotated rectangle.
+    color : tuple, optional
+        BGR color used for the rectangle, arrow, and label.
+    thickness : int, optional
+        Rectangle and arrow line thickness.
+    label_gap : int, optional
+        Horizontal spacing between the rectangle and label, in pixels.
+    font_scale : float, optional
+        Label font scale.
+    text_thickness : int, optional
+        Label stroke thickness.
+
+    Returns
+    -------
+    np.ndarray
+        The same image, with the drawing applied.
+
+    Notes
+    -----
+    The arrow starts at the center and has a center-to-tip length equal
+    to height, subject to pixel rounding. Its direction is angle_radians.
+    """
+    if width <= 0 or height <= 0:
+        raise ValueError("width and height must be positive.")
+    if thickness < 1 or text_thickness < 1:
+        raise ValueError("Line thicknesses must be positive integers.")
+
+    cx = center.x
+    cy = center.y
+    c = np.cos(angle_radians)
+    s = np.sin(angle_radians)
+
+    # Local corners before rotation.
+    corners = np.array(
+        [
+            [-width / 2, -height / 2],
+            [width / 2, -height / 2],
+            [width / 2, height / 2],
+            [-width / 2, height / 2],
+        ],
+        dtype=np.float64,
+    )
+
+    # Image y increases downward, so positive CCW angles need this matrix.
+    rotation = np.array(
+        [
+            [c, s],
+            [-s, c],
+        ]
+    )
+
+    rotated_corners = corners @ rotation.T + np.array([cx, cy])
+    points = np.rint(rotated_corners).astype(np.int32)
+
+    cv2.polylines(
+        frame,
+        [points.reshape(-1, 1, 2)],
+        isClosed=True,
+        color=color,
+        thickness=thickness,
+        lineType=cv2.LINE_AA,
+    )
+
+    # Direction vector in image coordinates: (cos(angle), -sin(angle)).
+    arrow_start = (int(round(cx)), int(round(cy)))
+    arrow_end = (
+        int(round(cx + height * c)),
+        int(round(cy - height * s)),
+    )
+
+    if show_arrow:
+        cv2.arrowedLine(
+            frame,
+            arrow_start,
+            arrow_end,
+            color,
+            thickness=thickness,
+            line_type=cv2.LINE_AA,
+            tipLength=0.2,
+        )
+
+    if label is not None and str(label):
+        text = str(label)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        (_, text_height), baseline = cv2.getTextSize(
+            text, font, font_scale, text_thickness
+        )
+
+        # Position outside the rotated rectangle's rightmost extent.
+        text_x = int(np.ceil(rotated_corners[:, 0].max())) + label_gap
+        text_y = int(round(cy + (text_height - baseline) / 2))
+
+        cv2.putText(
+            frame,
+            text,
+            (text_x, text_y),
+            font,
+            font_scale,
+            color,
+            text_thickness,
+            lineType=cv2.LINE_AA,
+        )
 
     return frame
 
@@ -603,12 +736,12 @@ def show_photo_from_frame(frame: np.ndarray, window_name="Default"):
     cv2.destroyAllWindows()
 
 
-def load_and_show_video(example_video: str):
+def load_and_show_video(video_path: str, save_to_csv: bool = True):
     our_bot = OurRobot()
     our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
 
     print("loading video frames")
-    video_frames = load_video_frames(example_video)
+    video_frames = load_video_frames(video_path)
 
     print("loading field frame")
     field_frame = load_image_as_frame("field_pngs/empty_field.png")
@@ -618,45 +751,26 @@ def load_and_show_video(example_video: str):
     field_list_of_frames = []
 
     for camera_frame in video_frames:
+        camera_frame : np.ndarray
+        camera_frame_cop = camera_frame.copy()
+        field_frame_copy = field_frame.copy()
 
-        detection_list = get_detections_from_frame(
-            bot=our_bot,
-            frame=camera_frame,
-        )
-        # ic(detection_list)
-
-        updated_cam_frame = draw_detection_list_to_frame(
-            frame=camera_frame, detect_list=detection_list
-        )
-
-        updated_field_frame = draw_robot_to_field(field_frame=field_frame, bot=our_bot)
-        updated_field_frame = draw_detection_list_to_field(
-            field_frame=field_frame, detect_list=detection_list, robot=our_bot
-        )
-
-        side_by_side_frame = show_frames_side_by_side(
-            updated_cam_frame, updated_field_frame
-        )
-
+        side_by_side_frame = get_side_by_side_frame(camera_frame_cop, field_frame_copy)
         field_list_of_frames.append(side_by_side_frame)
 
     print("preparing to show video")
     show_video_from_list_of_frames(field_list_of_frames)
 
 
-def load_and_show_photo(example_photo: str, is_side_by_side: bool = True):
 
-    camera_frame = load_image_as_frame(example_photo)
+def get_side_by_side_frame(camera_frame: np.ndarray, field_frame : np.ndarray):
     our_bot = OurRobot()
     our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
-
-    field_frame = load_image_as_frame("field_pngs/empty_field.png")
 
     detection_list = get_detections_from_frame(
         bot=our_bot,
         frame=camera_frame,
     )
-
 
     updated_cam_frame = draw_detection_list_to_frame(
         frame=camera_frame, detect_list=detection_list
@@ -664,25 +778,20 @@ def load_and_show_photo(example_photo: str, is_side_by_side: bool = True):
 
     updated_field_frame = draw_robot_to_field(field_frame=field_frame, bot=our_bot)
     updated_field_frame = draw_detection_list_to_field(
-        field_frame=field_frame, detect_list=detection_list
+        field_frame=field_frame, detect_list=detection_list, bot=our_bot
     )
 
-    if is_side_by_side:
-        side_by_side_frame = show_frames_side_by_side(
-            updated_cam_frame, updated_field_frame
-        )
-
-        show_photo_from_frame(side_by_side_frame)
-
-    else:
-        show_photo_from_frame(updated_field_frame)
-
-
-
-
+    return show_frames_side_by_side(updated_cam_frame, updated_field_frame)
+    
 
 if __name__ == "__main__":
-    example_photo = "training_data/tennis_ball_48in.png"
+    # example_photo = "training_data/tennis_right.png"
+    # example_frame = load_image_as_frame(example_photo)
+    # frame = get_side_by_side_frame(example_frame)
+    # show_photo_from_frame(frame)
+
+    example_video = "training_data/tennis_ball_with_corners.mp4"
+    load_and_show_video(example_video)
 
 
-    load_and_show_photo(example_photo, is_side_by_side=False)
+
