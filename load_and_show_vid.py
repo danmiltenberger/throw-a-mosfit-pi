@@ -12,7 +12,7 @@ def main():
 
 
 
-def load_and_show_video(video_path: str, save_to_csv: bool = True):
+def load_and_show_video(video_path: str):
     our_bot = OurRobot()
     our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
 

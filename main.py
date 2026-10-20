@@ -3,7 +3,7 @@ import time
 import cv2
 import sys
 from settings_run import CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y, USE_DRAWN_FIELD
-from tam_library_OOP import get_side_by_side_frame
+from tam_library_draw_and_show import get_side_by_side_frame
 
 
 def main():

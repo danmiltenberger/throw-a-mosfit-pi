@@ -126,7 +126,7 @@ def save_detections_csv(
 
         writer.writerow(row)
 
-    print(f"saved to: {path}")
+    
 
 
 def load_detections_csv(
@@ -211,9 +211,8 @@ def clear_detections_csv(filename: str | Path) -> None:
         pass
 
 
-def get_save_file_path(directory: str = "detections", ending : str = ".csv") -> str:
-    output_date = datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
-    file_path = directory + "/" + output_date + ending
+def get_save_file_path(directory: str = "detections", file_name : str = datetime.now().strftime("%Y_%m_%dT%H_%M_%S"), ending : str = ".csv") -> str:
+    file_path = directory + "/" + file_name + ending
     return file_path
 
 
@@ -295,7 +294,7 @@ def select_from_directory(directory, ending= ".png"):
         print("Invalid selection. Please enter a number from the list.")
 
 
-def load_video_frames(video_path):
+def load_video_as_list_of_frames(video_path):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"Could not open video: {video_path}")
