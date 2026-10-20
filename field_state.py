@@ -1,7 +1,41 @@
 import csv
+import cv2
+import numpy as np
 from pathlib import Path
 from typing import Sequence, Union
-from tam_library_classes import OurRobot, Detection, Point
+from tam_library_classes import (
+    OurRobot,
+    Detection,
+    Point,
+    FieldState,
+    RADIANS_NORTH,
+    RADIANS_SOUTH,
+    POINT_BOTTOM_GOALBOX,
+    POINT_TOP_GOALBOX,
+    POINT_CENTER_FIELD,
+)
+from tam_library_save_and_load import clear_csv, save_field_state, load_field_state
+from tam_library_draw_and_show import draw_notched_rectangle
+from tam_library_field import RADIUS_ROBOT, RADIUS_BALL
+from dataclasses import dataclass
+
+# header consts
+TIMESTEP = "time_step"
+OUR_BOT_POSITION_IN = "our_bot_pos_in"
+OUR_BOT_BEARING_RAD = "our_bot_bearing_rad"
+THEIR_BOT_POSITION_IN = "their_bot_pos_in"
+THEIR_BOT_BEARING_RAD = "their_bot_bearing_rad"
+BALL_POS_IN = "ball_pos_in"
+
+
+HEADERS_LIST = [
+    TIMESTEP,
+    OUR_BOT_POSITION_IN,
+    OUR_BOT_BEARING_RAD,
+    THEIR_BOT_POSITION_IN,
+    THEIR_BOT_BEARING_RAD,
+    BALL_POS_IN,
+]
 
 
 def save_frame_to_csv(
@@ -78,9 +112,7 @@ def save_frame_to_csv(
             for suffix, attribute_path in field_specs:
                 column = f"{prefix}{index + 1}_{suffix}"
                 headers.append(column)
-                row[column] = (
-                    get_value(obj, attribute_path) if obj is not None else ""
-                )
+                row[column] = get_value(obj, attribute_path) if obj is not None else ""
 
     file_path = Path(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,52 +136,61 @@ def save_frame_to_csv(
         writer.writerow(row)
 
 
+def draw_field(field_state: FieldState, field_frame: np.ndarray) -> np.ndarray:
 
-def example():
-    file_path_example = "field_states/tracking.csv"
+    # draw our robot
 
-    robots = [
-        OurRobot(
-            label="our bot",
-            field_pos_in=Point(12.0, -30.0),
-            azimuth_rad=0.5,
-        ),
-        OurRobot(
-            label="second bot",
-            field_pos_in=Point(24.0, 10.0),
-            azimuth_rad=1.2,
-        ),
-    ]
 
-    detections = [
-        Detection(
-            name="ball",
-            width_px=25,
-            screen_center_px=Point(320.0, 240.0),
-            area=450,
-            range=36.0,
-            azimuth_rad=0.25,
-            field_pos_in=Point(18.0, 5.0),
-        ),
-    ]
 
-    save_frame_to_csv(
-        file_path=file_path_example,
-        frame_number=1,
-        robots=robots,
-        detections=detections,
-    )
+    # draw their robot
 
-    # Append another frame with fewer objects.
-    # robot2 and all detection columns will be blank in this row.
-    save_frame_to_csv(
-        file_path=file_path_example,
-        frame_number=2,
-        robots=robots[:1],
-        detections=[],
-    )
 
-    print(f"saved to {file_path_example}")
+
+    # draw ball
+    
+    
+    
+    
+    
+    return field_frame
+
+
 
 if __name__ == "__main__":
-    example()
+
+    state = FieldState(
+        timestep=0.1,
+        our_bot_pos=POINT_BOTTOM_GOALBOX,
+        their_bot_pos=POINT_TOP_GOALBOX,
+        our_bot_bearing=RADIANS_NORTH,
+        their_bot_bearing=RADIANS_SOUTH,
+        ball_position=POINT_CENTER_FIELD,
+    )
+
+    state.ball_position = Point(3,-7)
+
+    clear_csv("field_states/testing.csv")
+    save_field_state(filename="field_states/testing.csv", state= state)
+    loaded_state : FieldState = load_field_state("field_states/testing.csv")
+
+    assert loaded_state == state
+
+
+    image = np.full((600, 700, 3), 240, dtype=np.uint8)
+
+    draw_notched_rectangle(
+        image,
+        center_x=350,
+        top_y=180,
+        width=RADIUS_ROBOT * 2,
+        height=RADIUS_ROBOT * 2,
+        base_length=RADIUS_BALL * 2,
+        angle_deg=90,
+        color=(180, 100, 30),
+        rotation_deg=30,
+        border_thickness=1,
+    )
+
+    cv2.imshow("Notched rectangle with border", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()

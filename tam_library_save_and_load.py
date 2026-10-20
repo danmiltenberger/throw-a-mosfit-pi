@@ -2,13 +2,14 @@ import csv
 import cv2
 from pathlib import Path
 from datetime import datetime
-from tam_library_classes import Detection, OurRobot
+from tam_library_classes import Detection, OurRobot, FieldState, Point
 import numpy as np
 
 import csv
 import json
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Union
+PathLike = Union[str, Path]
 
 # folder consts
 HSV_BOUNDS = "hsv_bounds"
@@ -127,8 +128,6 @@ def save_detections_csv(
 
         writer.writerow(row)
 
-    
-
 
 def load_detections_csv(
     filename: str | Path,
@@ -206,7 +205,7 @@ def load_detections_csv(
     return frames
 
 
-def clear_detections_csv(filename: str | Path) -> None:
+def clear_csv(filename: str | Path) -> None:
     """Clear all CSV contents, including the header."""
     with Path(filename).open("w", newline="", encoding="utf-8"):
         pass
@@ -369,4 +368,81 @@ def save_frames_as_video(
 
 
 
+
+
+FIELD_STATE_HEADERS = [
+    "timestep",
+    "our_bot_position_x",
+    "our_bot_position_y",
+    "their_bot_position_x",
+    "their_bot_position_y",
+    "our_bot_bearing",
+    "their_bot_bearing",
+    "ball_position_x",
+    "ball_position_y",
+]
+
+
+def save_field_state(state: FieldState, filename: PathLike) -> None:
+    """Save a single FieldState to CSV, overwriting the file if it exists."""
+    row = {
+        "timestep": state.timestep,
+        "our_bot_position_x": state.our_bot_pos.x,
+        "our_bot_position_y": state.our_bot_pos.y,
+        "their_bot_position_x": state.their_bot_pos.x,
+        "their_bot_position_y": state.their_bot_pos.y,
+        "our_bot_bearing": state.our_bot_bearing,
+        "their_bot_bearing": state.their_bot_bearing,
+        "ball_position_x": state.ball_position.x,
+        "ball_position_y": state.ball_position.y,
+    }
+
+    with open(filename, "w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=FIELD_STATE_HEADERS)
+        writer.writeheader()
+        writer.writerow(row)
+
+
+def load_field_state(filename: PathLike) -> FieldState:
+    """Load a FieldState from a CSV containing exactly one data row."""
+    with open(filename, "r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+
+        missing = set(FIELD_STATE_HEADERS) - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(
+                f"CSV is missing required columns: {', '.join(sorted(missing))}"
+            )
+
+        row = next(reader, None)
+        if row is None:
+            raise ValueError("CSV contains no FieldState data.")
+
+        if next(reader, None) is not None:
+            raise ValueError("Expected exactly one FieldState row.")
+
+    try:
+        values = {name: float(row[name]) for name in FIELD_STATE_HEADERS}
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "All required FieldState values must be numeric."
+        ) from exc
+
+    return FieldState(
+        timestep=values["timestep"],
+        our_bot_pos=Point(
+            x=values["our_bot_position_x"],
+            y=values["our_bot_position_y"],
+        ),
+        their_bot_pos=Point(
+            x=values["their_bot_position_x"],
+            y=values["their_bot_position_y"],
+        ),
+        our_bot_bearing=values["our_bot_bearing"],
+        their_bot_bearing=values["their_bot_bearing"],
+        ball_position=Point(
+            x=values["ball_position_x"],
+            y=values["ball_position_y"],
+        ),
+    )
 

@@ -1,0 +1,2 @@
+timestep,our_bot_position_x,our_bot_position_y,their_bot_position_x,their_bot_position_y,our_bot_bearing,their_bot_bearing,ball_position_x,ball_position_y
+0.1,0,-60,0,60,1.5707963267948966,-1.5707963267948966,3,-7

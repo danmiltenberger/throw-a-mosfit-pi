@@ -5,6 +5,7 @@ import numpy as np
 
 # measure ccw from positive x (3oclock)
 RADIANS_NORTH = np.pi/2
+RADIANS_SOUTH = -np.pi/2
 RADIANS_SOUTH_EAST = -np.pi/4
 RADIANS_NORTH_EAST = np.pi/4
 
@@ -21,6 +22,21 @@ class Point:
     #     return_str = f"x: {self.x}, y: {self.y}"
     #     return return_str
 
+# starting points
+POINT_BOTTOM_GOALBOX = Point(0,-60)
+POINT_TOP_GOALBOX = Point(0,60)
+POINT_CENTER_FIELD = Point(0,0)
+
+@dataclass 
+class FieldState:
+    timestep : float = 0
+    our_bot_pos : Point = field(default_factory=lambda: POINT_BOTTOM_GOALBOX)
+    their_bot_pos : Point = field(default_factory=lambda: POINT_TOP_GOALBOX)
+
+    our_bot_bearing : float = RADIANS_NORTH
+    their_bot_bearing : float = RADIANS_SOUTH
+
+    ball_position : Point = field(default_factory=lambda: POINT_CENTER_FIELD)
   
 
 @dataclass
@@ -76,3 +92,5 @@ class Detection:
             f"field_pos_in={round(self.field_pos_in.x), round(self.field_pos_in.y)}, "
             f"field_pos_px={round(self.field_pos_px.x), round(self.field_pos_px.y)})"
         )
+
+

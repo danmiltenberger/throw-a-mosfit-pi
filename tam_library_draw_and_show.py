@@ -515,4 +515,116 @@ def get_side_by_side_frame(camera_frame: np.ndarray, field_frame : np.ndarray):
     )
 
     return show_frames_side_by_side(updated_cam_frame, updated_field_frame)
-    
+
+
+def draw_notched_rectangle(
+    image,
+    center_x,
+    top_y,
+    width,
+    height,
+    base_length,
+    angle_deg,
+    color=(255, 255, 255),
+    rotation_deg=0.0,
+    border_thickness=1,
+):
+    """
+    Draw a filled, rotated rectangle with a V-notch and black border.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Destination image; modified in place.
+    center_x, top_y : float
+        Horizontal center and top edge BEFORE rotation, in pixels.
+    width, height : float
+        Rectangle dimensions before rotation, in pixels.
+    base_length : float
+        Width of the triangular opening along the unrotated top edge.
+    angle_deg : float
+        Interior angle at the bottom tip of the V, in degrees.
+    color : tuple or int
+        OpenCV BGR fill color, or a scalar for a grayscale image.
+    rotation_deg : float
+        Rotation about the rectangle's center, in degrees.
+        Positive = counterclockwise as viewed on the image.
+    border_thickness : int
+        Black border width in pixels; must be at least 1.
+
+    Returns
+    -------
+    np.ndarray
+        The modified input image.
+    """
+    values = (
+        center_x, top_y, width, height,
+        base_length, angle_deg, rotation_deg,
+    )
+    if not all(np.isfinite(v) for v in values):
+        raise ValueError("All geometry parameters must be finite.")
+    if width <= 0 or height <= 0:
+        raise ValueError("width and height must be positive.")
+    if not 0 < base_length < width:
+        raise ValueError("base_length must be between 0 and width.")
+    if not 0 < angle_deg < 180:
+        raise ValueError("angle_deg must be between 0 and 180.")
+    if (
+        not isinstance(border_thickness, (int, np.integer))
+        or border_thickness < 1
+    ):
+        raise ValueError("border_thickness must be a positive integer.")
+
+    notch_depth = (base_length / 2) / np.tan(
+        np.deg2rad(angle_deg / 2)
+    )
+    if notch_depth >= height:
+        raise ValueError("The notch must be shallower than the rectangle.")
+
+    left = center_x - width / 2
+    right = center_x + width / 2
+    bottom = top_y + height
+
+    vertices = np.array([
+        [left,                       top_y],
+        [center_x - base_length / 2,  top_y],
+        [center_x,                   top_y + notch_depth],
+        [center_x + base_length / 2,  top_y],
+        [right,                      top_y],
+        [right,                      bottom],
+        [left,                       bottom],
+    ], dtype=np.float64)
+
+    pivot = (float(center_x), float(top_y + height / 2))
+    matrix = cv2.getRotationMatrix2D(
+        pivot, float(rotation_deg), 1.0
+    )
+    rotated_vertices = vertices @ matrix[:, :2].T + matrix[:, 2]
+
+    # Retain subpixel geometry until rasterization.
+    shift = 8
+    points = np.rint(
+        rotated_vertices * (1 << shift)
+    ).astype(np.int32)
+
+    cv2.fillPoly(
+        image,
+        [points],
+        color=color,
+        lineType=cv2.LINE_AA,
+        shift=shift,
+    )
+
+    black = 0 if image.ndim == 2 else (0,) * image.shape[2]
+
+    cv2.polylines(
+        image,
+        [points],
+        isClosed=True,
+        color=black,
+        thickness=int(border_thickness),
+        lineType=cv2.LINE_AA,
+        shift=shift,
+    )
+
+    return image
