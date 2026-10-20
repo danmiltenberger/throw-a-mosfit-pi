@@ -5,10 +5,6 @@ from tam_library_save_and_load import load_video_frames, load_image_as_frame
 from tam_library_draw_and_show import convert_to_field_pixels_global, get_side_by_side_frame, show_video_from_list_of_frames
 
 
-# example_photo = "training_data/tennis_right.png"
-# example_frame = load_image_as_frame(example_photo)
-# frame = get_side_by_side_frame(example_frame)
-# show_photo_from_frame(frame)
 
 def main():
     example_video = "training_data/tennis_ball_with_corners.mp4"
@@ -40,6 +36,9 @@ def load_and_show_video(video_path: str, save_to_csv: bool = True):
 
     print("preparing to show video")
     show_video_from_list_of_frames(field_list_of_frames)
+
+
+
 
 
 if __name__ == "__main__":
