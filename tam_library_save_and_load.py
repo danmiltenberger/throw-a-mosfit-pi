@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Sequence, Union
 PathLike = Union[str, Path]
 
+from settings_run import USE_DRAWN_FIELD
+
 # folder consts
 HSV_BOUNDS = "hsv_bounds"
 FIELD_PNGS = "field_pngs"
@@ -446,3 +448,11 @@ def load_field_state(filename: PathLike) -> FieldState:
         ),
     )
 
+
+def get_field_frame() -> np.ndarray:
+    if USE_DRAWN_FIELD:
+        field = load_image_as_frame("field_pngs/empty_field.png")
+    else:
+        field = load_image_as_frame("field_pngs/black_field.png")
+
+    return field

@@ -30,6 +30,11 @@ MIN_AREA = "min_area"
 #MIN_WIDTH = "min_width"
 
 
+# team colors 
+OUR_TEAM_COLOR = YELLOW #TODO allow this to change through a button on the bot!
+THEIR_TEAM_COLOR = CYAN
+
+
 ball_red: dict = {
     "name" : BALL_RED,
     "shape" : CIRCLE,
