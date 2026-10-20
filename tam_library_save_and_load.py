@@ -15,6 +15,7 @@ HSV_BOUNDS = "hsv_bounds"
 FIELD_PNGS = "field_pngs"
 TRAINING_DATA = "training_data"
 DETECIONS = "detections"
+FIELD_STATES = "field_states"
 
 
 # Edit this list to select the Detection attributes to save/load.
