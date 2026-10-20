@@ -1,177 +1,16 @@
 import cv2
 import numpy as np
 import math
-import csv
-import json
 from icecream import ic
-from settings_run import search_for_dict, MIN_AREA, MIN_CIRCLARITY
+from settings_run import search_for_dict, search_for_list, MIN_AREA, MIN_CIRCLARITY, KNOWN_WIDTH_IN, FOCAL_LENGTH
 from pathlib import Path
-from datetime import datetime
 from tam_library_classes import Detection, Point, OurRobot
-from tam_library import (
-    search_for_list,
-    load_hsv_bounds,
-    get_best_contour,
-    CIRCLE,
-    RECT,
-    SCREEN_CENTER_X,
-    FOCAL_LENGTH,
-    convert_to_px,
-    KNOWN_WIDTH_IN,
-    field_center_px_x,
-    field_center_px_y,
-    load_image_as_frame,
-    show_frames_side_by_side,
-    playing_field_in_x,
-    playing_field_in_y,
-)
-
-from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, USE_DRAWN_FIELD
+from tam_library_field import field_center_px_x, field_center_px_y, playing_field_in_x, playing_field_in_y, convert_to_px
+from tam_library_camera_utils import SCREEN_CENTER_X, convert_to_field_pixels_global, get_detections_from_frame
+from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, RECT, CIRCLE
 
 
-def is_valid_contour(contour, area, object_dict: dict) -> bool:
-    """
-    check if the contour is valid based on area, circularity, etc
-    """
-
-    if MIN_AREA in object_dict.keys():
-        if area < object_dict[MIN_AREA]:
-            return False
-
-    elif MIN_CIRCLARITY in object_dict.keys():
-        # Find contour properties
-        perimeter = cv2.arcLength(contour, True)
-
-        if perimeter > 0:
-            circularity = (4 * np.pi * area) / (perimeter**2)
-        else:
-            circularity = 0
-
-        if circularity < object_dict[MIN_CIRCLARITY]:
-            return False
-    else:
-        return True
-
-
-def get_detections_from_frame(frame: np.ndarray, bot: OurRobot) -> list[Detection]:
-    "from the input frame, search for the objects as specified in the run_settings.py search_list"
-
-    detect_list = []
-    frame = frame.copy()
-
-    for object_dict in search_for_list:
-
-        # load the necessary info from the reference list
-        path_to_hsv = object_dict["path_to_hsv"]
-        obj_name = object_dict["name"]
-        lower, upper = load_hsv_bounds(path_to_hsv)
-
-        # convert to hsv for processing
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        # create a mask using the hsv values
-        mask = cv2.inRange(hsv, lower, upper)
-
-        # get the contours from the mask
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # get the best contour
-        best_contour, best_area = get_best_contour(contours, object_dict=object_dict)
-
-        # if there is no contour, this object has not been detected, go to next object
-        if best_contour is None:
-            continue
-
-        # if there IS a contour, we want to know how large it is and where it is
-        best_contour, best_area = get_best_contour(contours, object_dict)
-
-        # if the contour is no good, skip it
-        contour_verdict = is_valid_contour(
-            contour=best_contour, area=best_area, object_dict=object_dict
-        )
-        if contour_verdict == False:
-            continue
-
-        # okay, so at this point we have decided that the contour is useful. Let's package and ship it!
-        this_detect = Detection()
-        this_detect.name = object_dict["name"]
-
-        # analyze either as a circle or rectangle
-        if object_dict["shape"] == CIRCLE:
-            (x, y), radius = cv2.minEnclosingCircle(best_contour)
-            center_point = Point(x, y)
-            this_detect.screen_center_px = center_point
-            this_detect.width_px = int(radius * 2)
-
-            this_detect.area = int(np.pi * radius * radius)
-
-        elif object_dict["shape"] == RECT:
-            left_x, top_y, width, height = cv2.boundingRect(best_contour)
-
-            x_center = int(left_x + width / 2)
-            y_center = int(top_y + height / 2)
-            center_point = Point(x=x_center, y=y_center)
-            this_detect.screen_center_px = center_point
-            this_detect.width_px = width
-            this_detect.area = int(width * height)
-
-        # determine the distance and angle relative to the camera
-        this_detect.range = calc_distance_from_bot(this_detect)
-        this_detect.azimuth_rad = calc_angle_from_screen_center(
-            this_detect.screen_center_px
-        )
-
-        # convert to the field xy system in inches
-        this_detect.field_pos_in = convert_pos_and_ang_to_robot_in(this_detect, bot)
-
-        # convert the field inches to the window pixels
-        this_detect.field_pos_px = convert_to_field_pixels_global(
-            this_detect.field_pos_in
-        )
-
-        detect_list.append(this_detect)
-
-    return detect_list
-
-
-def convert_pos_and_ang_to_robot_in(this_detect: Detection, robot: OurRobot) -> Point:
-
-    # get the detection's global position in inches
-    object_x = robot.field_pos_in.x + this_detect.range * math.cos(
-        this_detect.azimuth_rad + robot.azimuth_rad
-    )
-
-    object_y = robot.field_pos_in.y + this_detect.range * math.sin(
-        this_detect.azimuth_rad + robot.azimuth_rad
-    )
-
-    return Point(object_x, object_y)
-
-
-def calc_distance_from_bot(this_detect: Detection) -> float:
-    known_width = search_for_dict[this_detect.name][KNOWN_WIDTH_IN]
-    percieved_width = this_detect.width_px
-    Z = (known_width * FOCAL_LENGTH) / percieved_width
-    return Z
-
-
-def calc_angle_from_screen_center(point: Point) -> float:
-    """Return the horizontal angle from straight ahead, in radians.
-
-    Args:
-        pixel_x: Object's horizontal coordinate in the image.
-        focal_length_x: Camera's horizontal focal length in pixels.
-        center_x: Camera's horizontal principal point in pixels.
-
-    Returns:
-        Signed angle: negative to the left, positive to the right.
-    """
-    pixel_x = point.x
-    delta_x = pixel_x - SCREEN_CENTER_X
-
-    return -math.atan2(delta_x, FOCAL_LENGTH)
-
-
+### Draw things to the frames
 def draw_detection_list_to_frame(
     frame: np.ndarray, detect_list: list[Detection]
 ) -> np.ndarray:
@@ -376,28 +215,6 @@ def draw_detection_list_to_field(
         )
 
     return field_frame
-
-
-def convert_to_field_pixels_global(field_point_inches: Point) -> Point:
-    # the screen measures down and right from the top left,
-    # but we measure the field +up and +right from the center
-
-    # an input of 0,0 should result in window_x/2, window_y /2
-
-    px_x = convert_to_px(field_point_inches.x)
-    px_y = convert_to_px(field_point_inches.y)
-
-    # left means center minus the input
-    rel_px_x = field_center_px_x + px_x
-    rel_px_x = int(rel_px_x)
-
-    # up means center MINUS input
-    rel_px_y = field_center_px_y - px_y
-    rel_px_y = int(rel_px_y)
-
-    pixel_point = Point(rel_px_x, rel_px_y)
-
-    return pixel_point
 
 
 def draw_robot_to_field(field_frame: np.ndarray, bot: OurRobot) -> np.ndarray:
@@ -613,106 +430,6 @@ def draw_rectangle(
     return frame
 
 
-def show_field(camera_frame: np.ndarray, bot: OurRobot) -> list[np.ndarray]:
-
-    output_frames_list = []
-
-    ### Exame the camera feed and get the list of detections
-    detect_list = get_detections_from_frame(camera_frame, bot)
-    camera_frame = draw_detection_list_to_frame(camera_frame, detect_list)
-
-    ### Show to the user with the top down GUI
-    if USE_DRAWN_FIELD:
-        field_frame = "field_pngs/empty_field.png"
-    else:
-        field_frame = "field_pngs/black_field.png"
-    field_frame = load_image_as_frame(field_frame)
-
-    field_frame = draw_detection_list_to_field(
-        field_frame=field_frame, detect_list=detect_list, robot=bot
-    )
-
-    field_frame = draw_robot_to_field(field_frame=field_frame, bot=bot)
-
-    combined_frame = show_frames_side_by_side(camera_frame, field_frame)
-
-    output_frames_list.append(combined_frame)
-    return output_frames_list
-
-
-def load_video_frames(video_path):
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video: {video_path}")
-
-    frames = []
-    try:
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                break
-            frames.append(frame)
-    finally:
-        cap.release()
-
-    return frames
-
-
-def save_frames_as_video(
-    frames,
-    output_path,
-    fps=30,
-    codec="mp4v",
-    frame_size=None,
-):
-    """
-    Save a list of BGR frames as a video.
-
-    Args:
-        frames: List/array of frames, each shaped (H, W, 3) in BGR format.
-        output_path: Output video file path, e.g. "output.mp4".
-        fps: Frames per second.
-        codec: FourCC codec. Use "mp4v" for .mp4 or "XVID" for .avi.
-        frame_size: Optional (width, height). If None, inferred from the first frame.
-
-    Returns:
-        Path to the saved video.
-
-    Raises:
-        ValueError: If frames is empty or frames have inconsistent sizes.
-    """
-    if not frames:
-        raise ValueError("frames must contain at least one frame")
-
-    if frame_size is None:
-        height, width = frames[0].shape[:2]
-        frame_size = (width, height)
-
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    fourcc = cv2.VideoWriter_fourcc(*codec)
-    writer = cv2.VideoWriter(str(output_path), fourcc, fps, frame_size)
-
-    if not writer.isOpened():
-        raise RuntimeError(
-            f"Could not open VideoWriter for {output_path}. "
-            "Try codec='XVID' with an .avi output file."
-        )
-
-    try:
-        for i, frame in enumerate(frames):
-            if frame.shape[1::-1] != frame_size:
-                raise ValueError(
-                    f"Frame {i} has size {frame.shape[1::-1]}, expected {frame_size}"
-                )
-            writer.write(frame)
-    finally:
-        writer.release()
-
-    return output_path
-
-
 def show_video_from_list_of_frames(frames, window_name="Video", fps=30, wait_key=1):
     if not frames:
         raise ValueError("No frames to display.")
@@ -736,31 +453,47 @@ def show_photo_from_frame(frame: np.ndarray, window_name="Default"):
     cv2.destroyAllWindows()
 
 
-def load_and_show_video(video_path: str, save_to_csv: bool = True):
-    our_bot = OurRobot()
-    our_bot.field_pos_px = convert_to_field_pixels_global(our_bot.field_pos_in)
+def show_frames_side_by_side(
+    frame_left: np.ndarray,
+    frame_right: np.ndarray,
+    target_height: int | None = None,
+    window_name: str = "Side-by-Side Frames",
+) -> np.ndarray:
+    """Display two BGR frames side by side at the same height.
 
-    print("loading video frames")
-    video_frames = load_video_frames(video_path)
+    If target_height is None, use the right frame's original height.
+    Each frame's aspect ratio is preserved.
+    """
+    for name, frame in (("frame_left", frame_left), ("frame_right", frame_right)):
+        if frame is None or frame.size == 0:
+            raise ValueError(f"{name} must be a non-empty image.")
+        if frame.ndim != 3 or frame.shape[2] != 3:
+            raise ValueError(f"{name} must be a three-channel BGR image.")
 
-    print("loading field frame")
-    field_frame = load_image_as_frame("field_pngs/empty_field.png")
+    if frame_left.dtype != frame_right.dtype:
+        raise ValueError("Both frames must have the same data type.")
 
-    print("calculating and showing output to user")
+    if target_height is None:
+        target_height = frame_right.shape[0]
+    if target_height <= 0:
+        raise ValueError("target_height must be positive.")
 
-    field_list_of_frames = []
+    def resize_to_height(frame: np.ndarray) -> np.ndarray:
+        height, width = frame.shape[:2]
+        if height == target_height:
+            return frame
 
-    for camera_frame in video_frames:
-        camera_frame : np.ndarray
-        camera_frame_cop = camera_frame.copy()
-        field_frame_copy = field_frame.copy()
+        scale = target_height / height
+        new_width = max(1, round(width * scale))
+        return cv2.resize(
+            frame,
+            (new_width, target_height),
+            interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR,
+        )
 
-        side_by_side_frame = get_side_by_side_frame(camera_frame_cop, field_frame_copy)
-        field_list_of_frames.append(side_by_side_frame)
-
-    print("preparing to show video")
-    show_video_from_list_of_frames(field_list_of_frames)
-
+    combined = np.hstack((resize_to_height(frame_left), resize_to_height(frame_right)))
+    # cv2.imshow(window_name, combined)
+    return combined
 
 
 def get_side_by_side_frame(camera_frame: np.ndarray, field_frame : np.ndarray):
@@ -783,15 +516,3 @@ def get_side_by_side_frame(camera_frame: np.ndarray, field_frame : np.ndarray):
 
     return show_frames_side_by_side(updated_cam_frame, updated_field_frame)
     
-
-if __name__ == "__main__":
-    # example_photo = "training_data/tennis_right.png"
-    # example_frame = load_image_as_frame(example_photo)
-    # frame = get_side_by_side_frame(example_frame)
-    # show_photo_from_frame(frame)
-
-    example_video = "training_data/tennis_ball_with_corners.mp4"
-    load_and_show_video(example_video)
-
-
-

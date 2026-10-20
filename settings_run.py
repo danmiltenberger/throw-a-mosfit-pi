@@ -79,3 +79,18 @@ search_for_dict = {
     HAT_CYAN : hat_cyan,
     HAT_YELLOW : hat_yellow,
 }
+
+
+#### Functions to only run occasionally
+def calculate_focal_length():
+    # in this example, a tennis ball
+    # D = known diameter / length / height etc
+    # d = percieved diameter / etc
+    # Z = known distance to object
+    D = 2.7
+    d = 47
+    Z = 6 * 12
+
+    focal_length = (d * Z) / D
+
+    return focal_length

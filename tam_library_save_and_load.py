@@ -1,14 +1,20 @@
 import csv
+import cv2
 from pathlib import Path
 from datetime import datetime
 from tam_library_classes import Detection, OurRobot
+import numpy as np
 
 import csv
 import json
 from pathlib import Path
 from typing import Sequence
-from tam_library_OOP import get_detections_from_frame, load_image_as_frame
-from icecream import ic
+
+# folder consts
+HSV_BOUNDS = "hsv_bounds"
+FIELD_PNGS = "field_pngs"
+TRAINING_DATA = "training_data"
+DETECIONS = "detections"
 
 
 # Edit this list to select the Detection attributes to save/load.
@@ -205,44 +211,10 @@ def clear_detections_csv(filename: str | Path) -> None:
         pass
 
 
-def example_save_detections():
-    # For example, save only these attributes.
-    DETECTION_HEADERS = [
-        "name",
-        "range",
-        "azimuth_rad",
-        "field_pos_in.x",
-        "field_pos_in.y",
-    ]
-
-    file_name = get_save_file_path()
-    our_bot = OurRobot()
-
-    camera_frame = load_image_as_frame("training_data/tennis_ball_48in.png")
-    list_detections = get_detections_from_frame(frame=camera_frame, bot=our_bot)
-
-    # for clearer development
-    clear_detections_csv(file_name)
-
-    # Call once per camera frame.
-    save_detections_csv(file_name, vid_frame=0, detections=list_detections)
-
-    # Reload all frames.
-    frames = load_detections_csv(file_name)
-
-    ic(len(frames))
-
-    for vid_frame, frame_detections in frames:
-        print(f"Frame {vid_frame}:")
-        for detection in frame_detections:
-            print(detection)
-
-
 def get_save_file_path(directory: str = "detections", ending : str = ".csv") -> str:
     output_date = datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
     file_path = directory + "/" + output_date + ending
     return file_path
-
 
 
 def get_or_create_directory(directory: str | Path) -> Path:
@@ -267,5 +239,134 @@ def get_or_create_directory(directory: str | Path) -> Path:
     return path
 
 
-if __name__ == "__main__":
-    example_save_detections()
+def load_image_as_frame(image_path: str) -> np.ndarray:
+    """Load an image as a BGR NumPy array, or raise an error."""
+    frame = cv2.imread(image_path, cv2.IMREAD_COLOR)
+
+    if not isinstance(frame, np.ndarray) or frame.size == 0:
+        raise ValueError(f"Could not load image: {image_path}")
+
+    return frame
+
+
+def save_frame_as_image(output_path, frame):
+    if not cv2.imwrite(output_path, frame):
+        raise OSError(f"Could not save to path {output_path}")
+    print(f"saved frame to path {output_path}")
+
+
+def select_from_directory(directory, ending= ".png"):
+    """
+    Let the user select a PNG file from a directory.
+
+    Returns:
+        Path: the selected PNG file
+    Raises:
+        ValueError: if the directory is invalid or contains no PNG files
+    """
+    dir_path = Path(directory)
+
+    if not dir_path.is_dir():
+        raise ValueError(f"Not a valid directory: {directory}")
+
+    # Only include regular files ending in .png (case-insensitive)
+    sorted_files = sorted(
+        p for p in dir_path.iterdir() if p.is_file() and p.suffix.lower() == ending
+    )
+
+    if not sorted_files:
+        raise ValueError(f"No {ending} files found in: {dir_path}")
+
+    print(f"Select a {ending} file:")
+
+    for i, png_file in enumerate(sorted_files, start=1):
+        print(f"{i}. {png_file.name}")
+
+    while True:
+        choice = input("Enter a number: ").strip()
+
+        if choice.isdigit():
+            index = int(choice)
+            if 1 <= index <= len(sorted_files):
+                selected = sorted_files[index - 1]
+                print(f"Selected: {selected}")
+                return selected
+
+        print("Invalid selection. Please enter a number from the list.")
+
+
+def load_video_frames(video_path):
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
+
+    frames = []
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frames.append(frame)
+    finally:
+        cap.release()
+
+    return frames
+
+
+def save_frames_as_video(
+    frames,
+    output_path,
+    fps=30,
+    codec="mp4v",
+    frame_size=None,
+):
+    """
+    Save a list of BGR frames as a video.
+
+    Args:
+        frames: List/array of frames, each shaped (H, W, 3) in BGR format.
+        output_path: Output video file path, e.g. "output.mp4".
+        fps: Frames per second.
+        codec: FourCC codec. Use "mp4v" for .mp4 or "XVID" for .avi.
+        frame_size: Optional (width, height). If None, inferred from the first frame.
+
+    Returns:
+        Path to the saved video.
+
+    Raises:
+        ValueError: If frames is empty or frames have inconsistent sizes.
+    """
+    if not frames:
+        raise ValueError("frames must contain at least one frame")
+
+    if frame_size is None:
+        height, width = frames[0].shape[:2]
+        frame_size = (width, height)
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fourcc = cv2.VideoWriter_fourcc(*codec)
+    writer = cv2.VideoWriter(str(output_path), fourcc, fps, frame_size)
+
+    if not writer.isOpened():
+        raise RuntimeError(
+            f"Could not open VideoWriter for {output_path}. "
+            "Try codec='XVID' with an .avi output file."
+        )
+
+    try:
+        for i, frame in enumerate(frames):
+            if frame.shape[1::-1] != frame_size:
+                raise ValueError(
+                    f"Frame {i} has size {frame.shape[1::-1]}, expected {frame_size}"
+                )
+            writer.write(frame)
+    finally:
+        writer.release()
+
+    return output_path
+
+
+
+
