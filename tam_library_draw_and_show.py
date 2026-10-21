@@ -235,7 +235,7 @@ def draw_robot_to_field(field_frame: np.ndarray, bot: OurRobot) -> np.ndarray:
 
 
 def draw_arrow(
-    frame,
+    frame: np.ndarray,
     start: Point,
     distance: float | None = None,
     angle_rad: float | None = None,
@@ -281,11 +281,11 @@ def draw_arrow(
         ex = sx + int(round(distance * math.cos(angle_rad)))
         ey = sy + int(round(distance * math.sin(angle_rad)))
 
-    cv2.arrowedLine(
-        frame,
-        (sx, sy),
-        (ex, ey),
-        color,
+    frame = cv2.arrowedLine(
+        img=frame,
+        pt1=(sx, sy),
+        pt2=(ex, ey),
+        color=color,
         thickness=thickness,
         tipLength=max(0.03, tip_size / max(1.0, math.hypot(ex - sx, ey - sy))),
     )
@@ -446,7 +446,7 @@ def show_video_from_list_of_frames(frames, window_name="Video", fps=30, wait_key
     cv2.destroyAllWindows()
 
 
-def show_photo_from_frame(frame: np.ndarray, window_name="Default"):
+def show_frame(frame: np.ndarray, window_name="Default"):
 
     cv2.imshow(window_name, mat=frame)
     cv2.waitKey(0)

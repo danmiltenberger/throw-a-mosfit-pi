@@ -54,6 +54,22 @@ goalbox_center_top_in = (0, 60)
 goalbox_center_bot_in = (0, -60)
 
 
+# draw the goalpost hats
+
+goal_net_px_x = convert_to_px(goal_net_in_x)
+goal_net_px_y = convert_to_px(goal_net_in_y)
+
+goalpost_left_offset = field_center_px_x - int(goal_net_px_x/2)
+goalpost_top_offset = goal_net_px_y
+
+goalbox_right_offset = total_window_px_x - goalpost_left_offset
+goalbox_bottom_offset = total_window_px_y - goalpost_top_offset
+
+
+GOALPOST_LEFT_TOP = Point(goalpost_left_offset, goalpost_top_offset)
+GOALPOST_LEFT_BOTTOM = Point(goalpost_left_offset, goalbox_bottom_offset)
+GOALPOST_RIGHT_TOP = Point(goalbox_right_offset, goalpost_top_offset)
+GOALPOST_RIGHT_BOTTOM = Point(goalbox_right_offset, goalbox_bottom_offset)
 
 
 
@@ -233,8 +249,7 @@ def draw_empty_field(
         height=playing_field_px_y,
     )
 
-    goal_net_px_x = convert_to_px(goal_net_in_x)
-    goal_net_px_y = convert_to_px(goal_net_in_y)
+
 
     goal_net = Rectangle(width=goal_net_px_x, height=goal_net_px_y)
 
@@ -298,23 +313,6 @@ def draw_empty_field(
 
 
 
-
-
-    # draw the goalpost hats
-
-    goalpost_left_offset = field_center_px_x - int(goal_net_px_x/2)
-    goalpost_top_offset = goal_net_px_y
-
-    goalbox_right_offset = total_window_px_x - goalpost_left_offset
-    goalbox_bottom_offset = total_window_px_y - goalpost_top_offset
-
-
-    GOALPOST_LEFT_TOP = Point(goalpost_left_offset, goalpost_top_offset)
-    GOALPOST_LEFT_BOTTOM = Point(goalpost_left_offset, goalbox_bottom_offset)
-    GOALBOX_RIGHT_TOP = Point(goalbox_right_offset, goalpost_top_offset)
-    GOALBOX_RIGHT_BOTTOM = Point(goalbox_right_offset, goalbox_bottom_offset)
-
-
     # left top
     frame = cv2.circle(
         img= frame,
@@ -336,7 +334,7 @@ def draw_empty_field(
     # right top
     frame = cv2.circle(
         img= frame,
-        center= (GOALBOX_RIGHT_TOP.x, GOALBOX_RIGHT_TOP.y),
+        center= (GOALPOST_RIGHT_TOP.x, GOALPOST_RIGHT_TOP.y),
         color= GOALPOST_COLOR_WEST,
         radius= GOALPOST_RADIUS,
         thickness= -1,
@@ -345,7 +343,7 @@ def draw_empty_field(
     # right bottom
     frame = cv2.circle(
         img= frame,
-        center= (GOALBOX_RIGHT_BOTTOM.x, GOALBOX_RIGHT_BOTTOM.y),
+        center= (GOALPOST_RIGHT_BOTTOM.x, GOALPOST_RIGHT_BOTTOM.y),
         color= GOALPOST_COLOR_WEST,
         radius= GOALPOST_RADIUS,
         thickness= -1,
