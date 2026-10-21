@@ -195,6 +195,7 @@ def test_draw_field():
 
     state.ball_position = Point(3,20)
     state.our_bot_pos = Point(8,-30)
+    state.our_bot_bearing += np.pi/4
 
     field_frame = get_field_frame()
 
