@@ -2,9 +2,9 @@ import math
 import time
 
 import cv2
-from picamera2 import Picamera2
-from main import get_or_create_directory, SCREEN_PX_X, SCREEN_PX_Y
-from get_objects_from_frame import get_current_time
+from picamera2 import Picamera2 #type: ignore
+from tam_library_save_and_load import save_frame_as_image, get_or_create_directory, get_save_file_path
+from settings_run import CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y
 
 def capture_with_countdown(
     picam: Picamera2,
@@ -77,7 +77,7 @@ fps = 30.0
 picam = Picamera2()
 
 config = picam.create_video_configuration(
-    main={"size": (SCREEN_PX_X, SCREEN_PX_Y), "format": "RGB888"},
+    main={"size": (CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y), "format": "RGB888"},
     controls={"FrameRate": fps},
 )
 picam.configure(config)
@@ -86,9 +86,7 @@ try:
     picam.start()
 
     # Capture for 30 seconds and save an MP4.
-    directory = str(get_or_create_directory("training_videos"))
-    file_name = get_current_time()
-    output_path = f"{directory}/{file_name}.mp4"
+    output_path = get_save_file_path(directory="training_data", ending=".mp4")
 
     capture_with_countdown(
         picam,

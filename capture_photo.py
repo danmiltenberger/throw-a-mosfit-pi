@@ -4,13 +4,13 @@ import sys
 from datetime import datetime
 
 try:
-    from picamera2 import Picamera2
+    from picamera2 import Picamera2 #type: ignore
 except ImportError:  # pragma: no cover - only used when the Pi camera library is unavailable.
     Picamera2 = None  # type: ignore[assignment]
 
-from vision_library import save_cv2_frame_as_png
-from main import get_or_create_directory
-from get_objects_from_frame import get_current_time
+from tam_library_save_and_load import save_frame_as_image, get_or_create_directory, get_save_file_path
+
+
 
 
 def take_photo():
@@ -44,11 +44,9 @@ def take_photo():
             if cv2.waitKey(1) & 0xFF == ord('q'):
 
                 
-                directory = str(get_or_create_directory("training_photos"))
-                file_name = get_current_time()
-                output_path = f"{directory}/{file_name}.png"
+                output_path = get_save_file_path(directory="training_data", ending=".png")
 
-                save_cv2_frame_as_png(frame, output_path)
+                save_frame_as_image(frame, output_path)
                 return frame
 
                 
