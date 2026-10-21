@@ -16,7 +16,7 @@ from tam_library_classes import (
     POINT_CENTER_FIELD,
 )
 from tam_library_save_and_load import clear_csv, save_field_state, load_field_state, get_field_frame
-from tam_library_draw_and_show import draw_notched_rectangle, convert_to_field_pixels_global, draw_outlined_circle
+from tam_library_draw_and_show import draw_notched_rectangle, convert_to_field_pixels_global, draw_outlined_circle, draw_field
 from tam_library_field import RADIUS_ROBOT, RADIUS_BALL
 from settings_run import OUR_TEAM_COLOR, THEIR_TEAM_COLOR
 from tam_library_colors import RED
@@ -138,47 +138,6 @@ def save_frame_to_csv(
         writer.writerow(row)
 
 
-def draw_field(field_state: FieldState, field_frame: np.ndarray) -> np.ndarray:
-
-    # draw our robot
-    field_frame = draw_notched_rectangle(
-            field_frame,
-            center_x=convert_to_field_pixels_global(field_state.our_bot_pos).x,
-            top_y=convert_to_field_pixels_global(field_state.our_bot_pos).y - RADIUS_ROBOT,
-            width=RADIUS_ROBOT * 2,
-            height=RADIUS_ROBOT * 2,
-            base_length=RADIUS_BALL * 2,
-            angle_deg=90,
-            color=OUR_TEAM_COLOR,
-            rotation_deg=math.degrees(field_state.our_bot_bearing)-90,
-            border_thickness=1,
-        )
-
-    # draw their robot
-    field_frame = draw_notched_rectangle(
-        field_frame,
-        center_x=convert_to_field_pixels_global(field_state.their_bot_pos).x,
-        top_y=convert_to_field_pixels_global(field_state.their_bot_pos).y - RADIUS_ROBOT,
-        width=RADIUS_ROBOT * 2,
-        height=RADIUS_ROBOT * 2,
-        base_length=RADIUS_BALL * 2,
-        angle_deg=90,
-        color=THEIR_TEAM_COLOR,
-        rotation_deg=math.degrees(field_state.their_bot_bearing)-90,
-        border_thickness=1,
-    )
-
-    # draw ball
-    field_frame = draw_outlined_circle(
-        image= field_frame,
-        center_x= convert_to_field_pixels_global(field_state.ball_position).x,
-        center_y= convert_to_field_pixels_global(field_state.ball_position).y,
-        color= RED,
-        radius= RADIUS_BALL,
-    )
-    
-    
-    return field_frame
 
 
 

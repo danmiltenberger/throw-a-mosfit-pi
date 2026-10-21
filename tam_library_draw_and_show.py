@@ -1,13 +1,13 @@
 import cv2
 import numpy as np
 import math
-from icecream import ic
 from settings_run import search_for_dict, search_for_list, MIN_AREA, MIN_CIRCLARITY, KNOWN_WIDTH_IN, FOCAL_LENGTH
 from pathlib import Path
-from tam_library_classes import Detection, Point, OurRobot
-from tam_library_field import field_center_px_x, field_center_px_y, playing_field_in_x, playing_field_in_y, convert_to_px
+from tam_library_classes import Detection, Point, OurRobot, FieldState
+from tam_library_field import field_center_px_x, field_center_px_y, playing_field_in_x, playing_field_in_y, convert_to_px, RADIUS_BALL, RADIUS_ROBOT
 from tam_library_camera_utils import SCREEN_CENTER_X, convert_to_field_pixels_global, get_detections_from_frame
-from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, RECT, CIRCLE
+from tam_library_colors import *
+from settings_run import SHAPE_TO_DRAW, DRAW_COLOR, DRAW_THICKNESS, RECT, CIRCLE, OUR_TEAM_COLOR, THEIR_TEAM_COLOR
 
 
 ### Draw things to the frames
@@ -706,3 +706,48 @@ def draw_outlined_circle(
 
     return image
 
+
+def draw_field(field_state: FieldState, field_frame: np.ndarray) -> np.ndarray:
+
+    # draw our robot
+    if field_state.draw_our_bot:
+        field_frame = draw_notched_rectangle(
+                field_frame,
+                center_x=convert_to_field_pixels_global(field_state.our_bot_pos).x,
+                top_y=convert_to_field_pixels_global(field_state.our_bot_pos).y - RADIUS_ROBOT,
+                width=RADIUS_ROBOT * 2,
+                height=RADIUS_ROBOT * 2,
+                base_length=RADIUS_BALL * 2,
+                angle_deg=90,
+                color=OUR_TEAM_COLOR,
+                rotation_deg=math.degrees(field_state.our_bot_bearing)-90,
+                border_thickness=1,
+            )
+
+    # draw their robot
+    if field_state.draw_their_bot:
+        field_frame = draw_notched_rectangle(
+            field_frame,
+            center_x=convert_to_field_pixels_global(field_state.their_bot_pos).x,
+            top_y=convert_to_field_pixels_global(field_state.their_bot_pos).y - RADIUS_ROBOT,
+            width=RADIUS_ROBOT * 2,
+            height=RADIUS_ROBOT * 2,
+            base_length=RADIUS_BALL * 2,
+            angle_deg=90,
+            color=THEIR_TEAM_COLOR,
+            rotation_deg=math.degrees(field_state.their_bot_bearing)-90,
+            border_thickness=1,
+        )
+
+    # draw ball
+    if field_state.draw_ball:
+        field_frame = draw_outlined_circle(
+            image= field_frame,
+            center_x= convert_to_field_pixels_global(field_state.ball_position).x,
+            center_y= convert_to_field_pixels_global(field_state.ball_position).y,
+            color= RED,
+            radius= RADIUS_BALL,
+        )
+    
+    
+    return field_frame

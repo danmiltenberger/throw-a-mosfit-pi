@@ -29,6 +29,11 @@ POINT_CENTER_FIELD = Point(0,0)
 
 @dataclass 
 class FieldState:
+
+    draw_our_bot : bool = True
+    draw_their_bot : bool = True
+    draw_ball : bool = True
+
     timestep : float = 0
     our_bot_pos : Point = field(default_factory=lambda: POINT_BOTTOM_GOALBOX)
     their_bot_pos : Point = field(default_factory=lambda: POINT_TOP_GOALBOX)
