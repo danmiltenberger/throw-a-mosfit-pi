@@ -2,14 +2,22 @@
 
 import numpy as np
 import cv2
-from settings_run import PIXELS_PER_INCH, CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y
-from tam_library_classes import Rectangle
+from settings_run import PIXELS_PER_INCH, CAMERA_CAPTURE_X, CAMERA_CAPTURE_Y, GOALPOST_COLOR_EAST, GOALPOST_COLOR_WEST, GOALPOST_RADIUS
+from tam_library_classes import Rectangle, Point
 from tam_library_colors import WHITE, BLACK, GRAY, LIGHT_GRAY, YELLOW, CYAN
 
+
+
+def convert_to_px(inches: float) -> int:
+    """Convert inches to pixels using the global scale factor."""
+    return int(round(inches * PIXELS_PER_INCH))
+
+
+
 # object consts
-RADIUS_ROBOT = int(14 * PIXELS_PER_INCH / 2)
-RADIUS_BALL = int(7 * PIXELS_PER_INCH / 2)
-RADIUS_TENNIS_BALL = int(2.7 * PIXELS_PER_INCH / 2)
+RADIUS_ROBOT = convert_to_px(14/2)
+RADIUS_BALL = convert_to_px(7/2)
+RADIUS_TENNIS_BALL = convert_to_px(2.7/2)
 
 # screen consts
 SCREEN_CENTER_X = int(CAMERA_CAPTURE_X /2)
@@ -46,12 +54,6 @@ goalbox_center_top_in = (0, 60)
 goalbox_center_bot_in = (0, -60)
 
 
-
-
-
-def convert_to_px(inches: float) -> int:
-    """Convert inches to pixels using the global scale factor."""
-    return int(round(inches * PIXELS_PER_INCH))
 
 
 
@@ -206,6 +208,7 @@ def draw_empty_field(
     is_show_image: bool = False,
     draw_centerpoints: bool = False,
     just_black: bool = False,
+    save_image: bool = True,
 ) -> np.ndarray:
 
     frame: np.ndarray = np.zeros(
@@ -294,8 +297,61 @@ def draw_empty_field(
     )
 
 
-    # draw the hats
-    
+
+
+
+    # draw the goalpost hats
+
+    goalpost_left_offset = field_center_px_x - int(goal_net_px_x/2)
+    goalpost_top_offset = goal_net_px_y
+
+    goalbox_right_offset = total_window_px_x - goalpost_left_offset
+    goalbox_bottom_offset = total_window_px_y - goalpost_top_offset
+
+
+    GOALPOST_LEFT_TOP = Point(goalpost_left_offset, goalpost_top_offset)
+    GOALPOST_LEFT_BOTTOM = Point(goalpost_left_offset, goalbox_bottom_offset)
+    GOALBOX_RIGHT_TOP = Point(goalbox_right_offset, goalpost_top_offset)
+    GOALBOX_RIGHT_BOTTOM = Point(goalbox_right_offset, goalbox_bottom_offset)
+
+
+    # left top
+    frame = cv2.circle(
+        img= frame,
+        center= (GOALPOST_LEFT_TOP.x, GOALPOST_LEFT_TOP.y),
+        color= GOALPOST_COLOR_EAST,
+        radius= GOALPOST_RADIUS,
+        thickness= -1,
+    )
+
+    # left bottom
+    frame = cv2.circle(
+        img= frame,
+        center= (GOALPOST_LEFT_BOTTOM.x, GOALPOST_LEFT_BOTTOM.y),
+        color= GOALPOST_COLOR_EAST,
+        radius= GOALPOST_RADIUS,
+        thickness= -1,
+    )
+
+    # right top
+    frame = cv2.circle(
+        img= frame,
+        center= (GOALBOX_RIGHT_TOP.x, GOALBOX_RIGHT_TOP.y),
+        color= GOALPOST_COLOR_WEST,
+        radius= GOALPOST_RADIUS,
+        thickness= -1,
+    )
+
+    # right bottom
+    frame = cv2.circle(
+        img= frame,
+        center= (GOALBOX_RIGHT_BOTTOM.x, GOALBOX_RIGHT_BOTTOM.y),
+        color= GOALPOST_COLOR_WEST,
+        radius= GOALPOST_RADIUS,
+        thickness= -1,
+    )
+
+
 
 
     if draw_centerpoints:
@@ -325,7 +381,9 @@ def draw_empty_field(
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    cv2.imwrite("empty_field.png", frame)
+    if save_image:
+        cv2.imwrite("empty_field.png", frame)
+
     return frame
 
 
@@ -357,3 +415,7 @@ def convert_in_point_to_screen(point) -> tuple[int, int]:
 goalbox_center_top_px = convert_in_point_to_screen(point=goalbox_center_top_in)
 goalbox_center_bot_px = convert_in_point_to_screen(point=goalbox_center_bot_in)
 center_field_px = convert_in_point_to_screen(point=(0, 0))
+
+
+if __name__ == "__main__":
+    draw_empty_field(save_image= True, is_show_image=False)
