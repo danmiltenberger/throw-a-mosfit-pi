@@ -46,7 +46,7 @@ def take_photo():
                 
                 output_path = get_save_file_path(directory="training_data", ending=".png")
 
-                save_frame_as_image(frame, output_path)
+                save_frame_as_image(output_path=output_path, frame= frame)
                 return frame
 
                 
