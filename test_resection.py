@@ -5,8 +5,46 @@ from tam_library_draw_and_show import draw_field, show_frame, draw_arrow, conver
 from tam_library_field import GOALPOST_LEFT_TOP, GOALPOST_RIGHT_TOP
 from settings_run import GOALPOST_COLOR_EAST, GOALPOST_COLOR_WEST
 import cv2
+import math
 
 
+
+
+def calc_actual_azim(observer: Point, target: Point) -> float:
+    ''' return the angle in radians from the positive x (right) with positive counterclockwise'''
+
+    delta_x = target.x - observer.x
+    delta_y = target.y - observer.y
+
+    azim = math.atan(delta_x/delta_y)
+
+    return azim
+
+
+def test_calc_actual_azim():
+
+    observer = Point(0,0)
+    target = Point(10,10)
+
+    azim = calc_actual_azim(target= target, observer=observer)
+
+    print(f"rad: {azim}, deg: {math.degrees(azim)}")
+
+
+def calc_pos_from_goalposts(delta_azim: float, goalpost1: Point, goalpost2: Point) -> Point:
+    '''
+    Find the observer position from two known landmarks
+    Returns position, defaulting to 0,0 
+    '''
+
+    position = Point(0,0)
+
+
+
+
+
+
+    return position
 
 
 def test_resection():
@@ -41,10 +79,8 @@ def test_resection():
         color= GOALPOST_COLOR_WEST,
     )
 
-    angle_to_top_right_from_3oclock = 0
-    
-
     show_frame(field_frame)
 
 
-test_resection()
+#test_resection()
+test_calc_actual_azim()

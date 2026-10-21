@@ -11,18 +11,77 @@ LANDMARK_A = np.array([10.0, 10.0])
 LANDMARK_B = np.array([WIDTH - 11.0, 10.0])
 
 
-def azimuth_to_point(observer, target):
-    """Return observer-to-target azimuth in degrees, clockwise from up."""
-    dx, dy = np.asarray(target, dtype=float) - np.asarray(
-        observer, dtype=float
+import math
+import numpy as np
+
+
+def azimuth_to_point(
+    observer,
+    target,
+    direction="clockwise",
+    reference="up",
+    coordinate_system="screen_reference",
+):
+    """Return observer-to-target azimuth in degrees, normalized to [0, 360).
+
+    Parameters
+    ----------
+    observer : array-like of length 2
+        Observer position (x, y).
+    target : array-like of length 2
+        Target position (x, y).
+    direction : {"clockwise", "counterclockwise"}
+        Direction in which angles increase.
+    reference : {"up", "left", "right", "down"}
+        Direction corresponding to 0 degrees.
+    coordinate_system : {"screen_reference", "field_reference"}
+        Coordinate convention for observer and target:
+        - "screen_reference": positive x is right, positive y is down.
+        - "field_reference": positive x is right, positive y is up.
+    """
+    reference_angles = {
+        "up": 0.0,
+        "right": 90.0,
+        "down": 180.0,
+        "left": 270.0,
+    }
+
+    if direction not in ("clockwise", "counterclockwise"):
+        raise ValueError(
+            "direction must be 'clockwise' or 'counterclockwise'."
+        )
+
+    if reference not in reference_angles:
+        raise ValueError(
+            "reference must be 'up', 'left', 'right', or 'down'."
+        )
+
+    if coordinate_system not in ("screen_reference", "field_reference"):
+        raise ValueError(
+            "coordinate_system must be 'screen_reference' "
+            "or 'field_reference'."
+        )
+
+    dx, dy = (
+        np.asarray(target, dtype=float)
+        - np.asarray(observer, dtype=float)
     )
 
     if math.hypot(dx, dy) < 1e-12:
         raise ValueError("Azimuth is undefined at the landmark itself.")
 
-    # North is negative screen y.
-    return math.degrees(math.atan2(dx, -dy)) % 360.0
+    # Convert vertical displacement to a positive-up convention.
+    dy_up = -dy if coordinate_system == "screen_reference" else dy
 
+    # Calculate clockwise azimuth from up.
+    angle = math.degrees(math.atan2(dx, dy_up))
+
+    # Apply the requested zero-angle reference and rotation direction.
+    angle -= reference_angles[reference]
+    if direction == "counterclockwise":
+        angle = -angle
+
+    return angle % 360.0
 
 def observer_from_azimuths(
     azimuth_a,
