@@ -1,4 +1,4 @@
-from tam_library_colors import RED, YELLOW, CYAN 
+from tam_library_colors import RED, YELLOW, CYAN, GREEN, FUCHSIA
 
 kernel_size = 3
 FOCAL_LENGTH = 1253.333     # recalc this when able
@@ -34,6 +34,11 @@ MIN_AREA = "min_area"
 OUR_TEAM_COLOR = YELLOW #TODO allow this to change through a button on the bot!
 THEIR_TEAM_COLOR = CYAN
 
+
+# goalpost info
+GOALPOST_RADIUS = 4 * PIXELS_PER_INCH
+GOALPOST_COLOR_EAST = GREEN
+GOALPOST_COLOR_WEST = FUCHSIA   # TODO also allow this to change through a button!
 
 ball_red: dict = {
     "name" : BALL_RED,

@@ -8,6 +8,10 @@ GRAY        = (128, 128, 128)
 LIGHT_GRAY  = (192, 192, 192)
 DARK_GRAY   = (64, 64, 64)
 
+
+# Goalpost specific colors
+FUCHSIA = (255, 0, 255)  # OpenCV BGR: blue, green, red
+
 # Primary and secondary colors
 RED         = (0, 0, 255)
 GREEN       = (0, 255, 0)

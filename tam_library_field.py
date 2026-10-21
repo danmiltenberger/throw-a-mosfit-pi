@@ -293,6 +293,11 @@ def draw_empty_field(
         LIGHT_GRAY,
     )
 
+
+    # draw the hats
+    
+
+
     if draw_centerpoints:
         centerpoint = Rectangle(
             width=30,
